@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Runes of Ruin">
+<meta name="theme-color" content="#0b0706">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<title>Runes of Ruin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=IM+Fell+English:ital@0;1&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0b0706; --ink: #e8dcc4; --dim: #9c8c74; --gold: #d8b070; --gold-dk: #7a5a30;
+  --blood: #8a1010; --blood-hi: #c02818; --panel: #17110e;
+  --head: 'Cinzel', Copperplate, 'Copperplate Gothic Bold', 'Trajan Pro', Georgia, serif;
+  --body: 'IM Fell English', Baskerville, 'Book Antiqua', Georgia, serif;
+  --sat: env(safe-area-inset-top, 0px); --sab: env(safe-area-inset-bottom, 0px);
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); overflow: hidden;
+  position: fixed; inset: 0; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+  font-family: var(--body); overscroll-behavior: none; }
+canvas#cv { position: fixed; inset: 0; width: 100%; height: 100%; touch-action: none; display: block; }
+.hidden { display: none !important; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; touch-action: manipulation; }
+
+/* ---------- buttons ---------- */
+.btn { font-family: var(--head); font-weight: 700; letter-spacing: .12em; text-transform: uppercase; font-size: 15px;
+  color: #f6e6c4; padding: 13px 26px; min-width: 150px; border-radius: 4px; position: relative;
+  background: linear-gradient(#a81c12, #6a0c08 55%, #3e0604);
+  border: 2px solid #c89a58; box-shadow: 0 0 0 2px #1a0806, inset 0 1px 0 rgba(255,220,180,.35), inset 0 -6px 12px rgba(0,0,0,.45), 0 6px 16px rgba(0,0,0,.6);
+  text-shadow: 0 2px 2px #000; }
+.btn:active { transform: translateY(1px) scale(.98); filter: brightness(1.15); }
+.btn.dark { background: linear-gradient(#3a2e26, #1e1612 60%, #120c0a); border-color: #8a6a42; }
+.btn.big { font-size: 20px; padding: 16px 40px; min-width: 210px; }
+.btn[disabled] { filter: grayscale(.9) brightness(.6); pointer-events: none; }
+.icon-btn { width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; font-size: 20px; color: var(--gold);
+  background: radial-gradient(#2c211a, #120c0a); border: 2px solid var(--gold-dk); box-shadow: 0 3px 8px rgba(0,0,0,.6); }
+
+/* ---------- title ---------- */
+.screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; pointer-events: none; }
+.screen > * { pointer-events: auto; }
+#scr-title .title-wrap { margin-top: calc(var(--sat) + 9vh); text-align: center; pointer-events: none; }
+.title-sup { font-family: var(--head); font-size: 13px; letter-spacing: .5em; color: var(--dim); text-transform: uppercase; }
+h1.title { font-family: var(--head); font-weight: 900; font-size: clamp(46px, 15vw, 84px); line-height: .9; margin: 10px 0 0;
+  letter-spacing: .04em; text-transform: uppercase;
+  background: linear-gradient(#fff2c8 10%, #d8a050 45%, #8a3a14 75%, #4a0a04); -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 4px 0 #000) drop-shadow(0 0 18px rgba(200,40,20,.45)); }
+h1.title span { font-size: .45em; letter-spacing: .3em; display: block; margin: 6px 0; }
+.title-btns { margin-top: auto; margin-bottom: calc(var(--sab) + 9vh); display: flex; flex-direction: column; gap: 14px; align-items: center; }
+.title-foot { position: absolute; bottom: calc(var(--sab) + 10px); font-size: 12px; color: #6a5a48; pointer-events: none; }
+
+/* ---------- HUD ---------- */
+#hud { position: fixed; left: 0; right: 0; top: 0; padding: calc(var(--sat) + 6px) 10px 0; pointer-events: none; }
+.hud-bar { display: flex; align-items: stretch; gap: 8px; pointer-events: auto; max-width: 560px; margin: 0 auto; }
+.hud-mid { flex: 1; min-width: 0; border-radius: 8px; padding: 6px 8px 7px;
+  background: linear-gradient(#241a14, #120c0a); border: 2px solid var(--gold-dk); box-shadow: 0 4px 12px rgba(0,0,0,.7), inset 0 0 12px rgba(0,0,0,.8); }
+.hud-level { font-family: var(--head); font-size: 11px; letter-spacing: .06em; color: var(--dim); text-align: center; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.goals { display: flex; justify-content: center; gap: 12px; margin-top: 4px; }
+.goal { position: relative; width: 44px; height: 40px; }
+.goal canvas { width: 40px; height: 40px; display: block; margin: 0 auto; }
+.goal .n { position: absolute; right: -6px; bottom: -4px; font-family: var(--head); font-weight: 900; font-size: 16px; color: #fff; text-shadow: 0 0 3px #000, 0 2px 2px #000, 0 0 6px #000; }
+.goal.done .n { color: #7dff9a; }
+.goal.bump { animation: bump .25s; }
+@keyframes bump { 50% { transform: scale(1.22); } }
+.moves { width: 74px; flex: none; border-radius: 50%; aspect-ratio: 1; align-self: center; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: radial-gradient(circle at 40% 35%, #b02016, #5a0806 60%, #2a0302); border: 3px solid #c89a58; box-shadow: 0 0 0 2px #1a0806, 0 6px 14px rgba(0,0,0,.7), inset 0 -6px 10px rgba(0,0,0,.5); }
+.moves-n { font-family: var(--head); font-weight: 900; font-size: 28px; line-height: 1; color: #fff3d8; text-shadow: 0 2px 2px #000; }
+.moves-l { font-family: var(--head); font-size: 9px; letter-spacing: .15em; color: #f0c890; text-transform: uppercase; }
+.moves.low { animation: pulse 1s infinite; }
+@keyframes pulse { 50% { box-shadow: 0 0 0 2px #1a0806, 0 0 22px 6px rgba(255,40,20,.7); } }
+
+/* ---------- map ---------- */
+#scr-map { background: linear-gradient(rgba(5,3,3,.55), rgba(5,3,3,.2) 30%, rgba(5,3,3,.6)); }
+.map-head { width: 100%; max-width: 560px; padding: calc(var(--sat) + 8px) 12px 6px; display: flex; align-items: center; gap: 10px; }
+.map-title { flex: 1; text-align: center; }
+.map-title .act { font-family: var(--head); font-weight: 900; font-size: 22px; letter-spacing: .1em; color: var(--gold); text-shadow: 0 2px 3px #000; }
+.map-title .nm { font-style: italic; font-size: 16px; color: var(--ink); text-shadow: 0 2px 3px #000; }
+.gold { font-family: var(--head); font-weight: 700; color: #ffd870; font-size: 15px; min-width: 42px; text-align: right; text-shadow: 0 2px 2px #000; }
+.gold::before { content: ''; display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 5px; vertical-align: -1px;
+  background: radial-gradient(circle at 35% 35%, #fff0a0, #d0a030 55%, #6a4808); box-shadow: 0 0 6px rgba(255,200,80,.6); }
+.map-scroll { flex: 1; width: 100%; overflow-y: auto; -webkit-overflow-scrolling: touch; touch-action: pan-y; }
+.map-path { position: relative; margin: 0 auto; max-width: 480px; }
+.map-path svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.node { position: absolute; width: 58px; height: 58px; margin: -29px 0 0 -29px; border-radius: 50%; display: grid; place-items: center;
+  font-family: var(--head); font-weight: 900; font-size: 20px; color: #f6e6c4; text-shadow: 0 2px 2px #000;
+  background: radial-gradient(circle at 40% 35%, #9a1a12, #4a0806 65%, #200302); border: 3px solid #c89a58;
+  box-shadow: 0 0 0 2px #120604, 0 6px 12px rgba(0,0,0,.7); }
+.node.done { background: radial-gradient(circle at 40% 35%, #4a3a2a, #241a12 65%, #100a06); border-color: #8a6a42; color: #c8b090; }
+.node.done::after { content: '\2713'; position: absolute; right: -4px; bottom: -4px; font-size: 13px; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; background: #2a5a2a; border: 2px solid #c89a58; color: #dfffd8; }
+.node.locked { background: radial-gradient(#2a2420, #141010); border-color: #4a3a2a; color: #5a4c40; box-shadow: 0 0 0 2px #0a0606; pointer-events: none; }
+.node.current { animation: glow 1.4s infinite; transform: scale(1.12); }
+.node.boss { width: 74px; height: 74px; margin: -37px 0 0 -37px; font-size: 26px; }
+@keyframes glow { 50% { box-shadow: 0 0 0 2px #120604, 0 0 26px 8px rgba(255,60,30,.75); } }
+.map-foot { width: 100%; max-width: 560px; display: flex; justify-content: space-between; align-items: center; padding: 8px 12px calc(var(--sab) + 10px); }
+.map-foot .btn { min-width: 0; padding: 10px 14px; font-size: 13px; }
+
+/* ---------- modal ---------- */
+#modal { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(4,2,2,.72); padding: 18px; z-index: 10; }
+.panel { width: 100%; max-width: 380px; max-height: calc(100% - var(--sat) - var(--sab)); overflow-y: auto; text-align: center; padding: 22px 20px 20px; position: relative;
+  background: radial-gradient(ellipse at 50% 0%, #2c1e16, #160f0c 70%); border: 2px solid #b08a52; border-radius: 6px;
+  box-shadow: 0 0 0 4px #0c0605, 0 0 0 5px #5a4228, 0 18px 50px rgba(0,0,0,.9), inset 0 0 30px rgba(0,0,0,.7);
+  animation: pop .22s ease-out; }
+@keyframes pop { from { transform: scale(.85); opacity: 0; } }
+.panel::before, .panel::after { content: '\2726'; position: absolute; top: 6px; color: #b08a52; font-size: 14px; }
+.panel::before { left: 9px; } .panel::after { right: 9px; }
+.panel h2 { font-family: var(--head); font-weight: 900; letter-spacing: .08em; margin: 0; font-size: 26px; text-transform: uppercase;
+  background: linear-gradient(#ffeec0, #d09a48 60%, #8a3a14); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.panel h2.red { background: linear-gradient(#ff9070, #c01808 60%, #600404); -webkit-background-clip: text; background-clip: text; }
+.panel .sub { font-style: italic; color: var(--dim); margin-top: 4px; font-size: 17px; }
+.panel .body { margin: 14px 0 4px; font-size: 18px; line-height: 1.4; white-space: pre-line; }
+.panel .btns { display: flex; flex-direction: column; gap: 10px; align-items: center; margin-top: 18px; }
+.panel .row-goals { display: flex; justify-content: center; gap: 16px; margin: 14px 0 6px; flex-wrap: wrap; }
+.panel .row-goals .g { width: 64px; font-size: 13px; color: var(--dim); }
+.panel .row-goals canvas { width: 50px; height: 50px; display: block; margin: 0 auto 3px; }
+.panel .row-goals b { display: block; font-family: var(--head); font-size: 18px; color: var(--ink); }
+.panel .tip { margin-top: 12px; padding: 10px 12px; border-top: 1px solid #4a3828; border-bottom: 1px solid #4a3828; font-style: italic; color: #e0cfa8; font-size: 16px; }
+.panel .toggles { display: flex; gap: 10px; justify-content: center; margin-top: 12px; }
+.panel .toggles .btn { min-width: 0; font-size: 12px; padding: 9px 12px; }
+.divider { height: 12px; margin: 10px auto 0; width: 70%; background: radial-gradient(ellipse, #b08a52 0, transparent 70%); opacity: .35; border-radius: 50%; }
+.story { text-align: left; font-size: 18px !important; }
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+
+<div id="scr-title" class="screen">
+  <div class="title-wrap">
+    <div class="title-sup">A Huntress's Vigil</div>
+    <h1 class="title">Runes<span>of</span>Ruin</h1>
+  </div>
+  <div class="title-btns">
+    <button class="btn big" id="btnPlay">Play</button>
+    <button class="btn dark" id="btnTitleMap">Map of the Acts</button>
+  </div>
+  <div class="title-foot" id="titleFoot"></div>
+</div>
+
+<div id="scr-map" class="screen hidden">
+  <div class="map-head">
+    <button class="icon-btn" id="btnMapBack" aria-label="Back">&#10094;</button>
+    <div class="map-title"><div class="act" id="mapAct">ACT I</div><div class="nm" id="mapName">The Hollow Moors</div></div>
+    <div class="gold" id="mapGold">0</div>
+  </div>
+  <div class="map-scroll" id="mapScroll"><div class="map-path" id="mapPath"></div></div>
+  <div class="map-foot">
+    <button class="btn dark" id="btnActPrev">&#10094; Act</button>
+    <button class="btn" id="btnMapPlay">Play</button>
+    <button class="btn dark" id="btnActNext">Act &#10095;</button>
+  </div>
+</div>
+
+<div id="hud" class="hidden">
+  <div class="hud-bar">
+    <button class="icon-btn" id="btnPause" aria-label="Menu" style="align-self:center">&#9776;</button>
+    <div class="hud-mid">
+      <div class="hud-level" id="hudLevel"></div>
+      <div class="goals" id="goals"></div>
+    </div>
+    <div class="moves" id="movesBox"><div class="moves-n" id="moves">0</div><div class="moves-l">moves</div></div>
+  </div>
+</div>
+
+<div id="modal" class="hidden"><div class="panel" id="panel"></div></div>
+
+<script src="js/core.js"></script>
+<script src="js/levels.js"></script>
+<script src="js/board.js"></script>
+<script src="assets/art-overrides.js"></script>
+<script src="js/art.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/view.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
