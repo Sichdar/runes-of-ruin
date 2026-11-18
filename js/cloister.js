@@ -64,8 +64,8 @@
       return Math.round(base * (s >= 2 ? 0.5 : s === 1 ? 0.75 : 1));
     },
     // Put the Forge's power-ups on plain tiles of a new board (before the view copies it).
-    arm(board) {
-      const kinds = this.forgeKinds();
+    arm(board, kindsIn) {
+      const kinds = kindsIn || this.forgeKinds(); // kindsIn: the fire bomb bought with gold
       if (!kinds.length) return 0;
       const spots = [];
       for (let r = 0; r < board.R; r++) for (let c = 0; c < board.C; c++) {

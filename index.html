@@ -136,6 +136,16 @@ h1.title span { font-size: .45em; letter-spacing: .3em; display: block; margin: 
 .map-purse { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; min-width: 52px; }
 .map-purse .stones { font-size: 14px; padding: 2px 0; position: relative; }
 .map-purse .stones.badge::after { top: 1px; right: auto; left: -26px; width: 18px; height: 18px; font-size: 11px; }
+/* S3 helpers [S06] */
+.hammer { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(var(--sab) + 12px); pointer-events: auto;
+  min-width: 0; font-size: 13px; padding: 9px 18px; white-space: nowrap; }
+.hammer:active { transform: translateX(-50%) translateY(1px) scale(.98); }
+.hammer.armed { border-color: #ffd870; box-shadow: 0 0 0 2px #1a0806, 0 0 18px 4px rgba(255,200,90,.6); color: #ffe8a8; animation: none; }
+.hammer.poor { opacity: .55; }
+.coin { display: inline-block; width: 11px; height: 11px; border-radius: 50%; vertical-align: -1px; margin-left: 2px;
+  background: radial-gradient(circle at 35% 35%, #fff0a0, #d0a030 55%, #6a4808); box-shadow: 0 0 6px rgba(255,200,80,.6); }
+.panel .btn.helper { min-width: 0; font-size: 12px; padding: 10px 14px; letter-spacing: .06em; }
+.gold-note { font-size: 14px; color: var(--dim); }
 .perk-note { font-size: 15px; color: #c8d4ff; font-style: italic; }
 .perk-note.off { color: #ff9a70; }
 #scr-cloister { background: linear-gradient(rgba(5,3,3,.8), rgba(5,3,3,.92)); }
@@ -211,6 +221,8 @@ h1.title span { font-size: .45em; letter-spacing: .3em; display: block; margin: 
     </div>
     <div class="moves" id="movesBox"><div class="moves-n" id="moves">0</div><div class="moves-l">moves</div></div>
   </div>
+  <button class="btn dark hammer" id="btnHammer">Hammer</button>
+
 </div>
 
 <div id="modal" class="hidden"><div class="panel" id="panel"></div></div>

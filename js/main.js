@@ -7,6 +7,7 @@
   const WIN_LINES = ['The dead rest again.', 'Another hall purged.', 'The darkness recoils.', 'Your javelins found their mark.', 'Silence returns to the stones.'];
   const LOSE_LINES = ['The darkness endures.', 'The dead outnumber you.', 'Your strength fails.'];
   const EXTRA_MOVES = 5;
+  const BOMB_PRICE = 150, HAMMER_PRICE = 100; // S3 helpers, kept small on purpose [S06]
 
   const App = {
     scene: 'title', state: 'idle', mapAct: 0,
@@ -32,7 +33,8 @@
       $('btnMapPlay').onclick = () => { snd('click'); this.startLevel(G.Save.data.unlocked); };
       $('btnActPrev').onclick = () => { snd('click'); this.openMap(this.mapAct - 1); };
       $('btnActNext').onclick = () => { snd('click'); this.openMap(this.mapAct + 1); };
-      $('btnPause').onclick = () => { snd('click'); this.pause(); };
+      $('btnPause').onclick = () => { snd('click'); this.hammerOff(); this.pause(); };
+      $('btnHammer').onclick = () => this.hammerClick();
       $('btnTitleCloister').onclick = () => { snd('click'); this.openCloister(() => this.openTitle()); };
       $('mapStones').onclick = () => { snd('click'); const a = this.mapAct; this.openCloister(() => this.openMap(a)); };
       $('titleFoot').textContent = 'v' + G.VERSION + (S.unlocked > 1 ? ' · level ' + S.unlocked : '');
@@ -64,7 +66,7 @@
     layoutBoard() {
       const top = G.UI.hudBottom() + 10;
       const probe = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sab')) || 0;
-      this.view.layout(this.W, this.H, top, 18 + probe, this.dpr);
+      this.view.layout(this.W, this.H, top, 18 + probe + 56, this.dpr); // +56: room for the hammer button [S06]
     },
     theme() {
       if (this.scene === 'title' || this.scene === 'cloister') return 'title';
@@ -135,14 +137,70 @@
       A().music(level.theme);
       S.stats.played++;
       G.Save.save();
+      this.hammerOff();
+      this.intro = { n, actIdx, perkNotes, anyBuilt, bomb: false };
+      this.showIntro();
+    },
+    // Level start panel; offers one fire bomb for gold (S3 helpers) [S06]
+    showIntro() {
+      const o = this.intro, level = this.level, S = G.Save.data, CL = G.Cloister;
+      const buttons = [{ label: 'Fight', cls: 'big', fn: () => { this.state = 'play'; this.idle = 0; } }];
+      if (!o.bomb) buttons.push({
+        label: 'Start with a fire bomb · ' + BOMB_PRICE + ' gold', cls: 'dark helper', disabled: S.gold < BOMB_PRICE,
+        fn: () => {
+          if (S.gold < BOMB_PRICE || !CL.arm(this.board, ['bomb'])) return this.showIntro();
+          S.gold -= BOMB_PRICE; G.Save.save();
+          o.bomb = true; o.perkNotes.push('fire bomb bought');
+          this.view.setBoard(this.board, level.theme);
+          this.layoutBoard();
+          snd('coin');
+          this.showIntro();
+        }
+      });
+      buttons.push({ label: 'Back', cls: 'dark', fn: () => this.openMap(o.actIdx) });
       G.UI.modal({
-        title: level.boss ? level.name : 'Level ' + n, sub: level.boss ? 'Level ' + n : level.name,
+        title: level.boss ? level.name : 'Level ' + o.n, sub: level.boss ? 'Level ' + o.n : level.name,
         goals: this.board.goals, tip: level.tip || '',
         html: '<b>' + this.board.moves + '</b> moves' +
-          (perkNotes.length ? '<br><span class="perk-note">' + perkNotes.join(' · ') + '</span>' : '') +
-          (anyBuilt && !CL.perksOn() ? '<br><span class="perk-note off">Cloister perks are off</span>' : ''),
-        buttons: [{ label: 'Fight', cls: 'big', fn: () => { this.state = 'play'; this.idle = 0; } }, { label: 'Back', cls: 'dark', fn: () => this.openMap(actIdx) }]
+          (o.perkNotes.length ? '<br><span class="perk-note">' + o.perkNotes.join(' · ') + '</span>' : '') +
+          (o.anyBuilt && !CL.perksOn() ? '<br><span class="perk-note off">Cloister perks are off</span>' : '') +
+          (o.bomb ? '' : '<br><span class="gold-note">You have ' + S.gold + ' gold</span>'),
+        buttons
       });
+    },
+
+    // ---------- the hammer: smash one tile for gold, costs no move (S3 helpers) [S06] ----------
+    hammerOff() {
+      this.hammerOn = false;
+      const b = $('btnHammer');
+      b.classList.remove('armed');
+      b.innerHTML = 'Hammer · ' + HAMMER_PRICE + ' <span class="coin"></span>';
+      b.classList.toggle('poor', G.Save.data.gold < HAMMER_PRICE);
+    },
+    hammerClick() {
+      if (this.scene !== 'level' || this.state !== 'play' || this.view.busy()) return;
+      if (this.hammerOn) { snd('click'); return this.hammerOff(); }
+      if (G.Save.data.gold < HAMMER_PRICE) {
+        snd('bad');
+        this.view.text('Not enough gold', this.W / 2, this.view.by + this.view.R * this.view.cs * .5, .7);
+        return;
+      }
+      snd('click');
+      this.hammerOn = true;
+      this.view.sel = null; this.selected = null;
+      const b = $('btnHammer');
+      b.classList.add('armed');
+      b.textContent = 'Tap a tile to smash';
+    },
+    useHammer(cell) {
+      const S = G.Save.data;
+      const ev = S.gold >= HAMMER_PRICE ? this.board.smash(cell.r, cell.c) : null;
+      this.hammerOff();
+      if (!ev) return;
+      S.gold -= HAMMER_PRICE; G.Save.save();
+      this.hammerOff();
+      snd('crack');
+      this.act(ev);
     },
 
     // ---------- turns ----------
@@ -205,6 +263,7 @@
           { label: '+' + EXTRA_MOVES + ' Moves · ' + (price ? price + ' gold' : 'Free'), disabled: S.gold < price, fn: () => {
             S.gold -= price; this.buys++; G.Save.save();
             this.board.moves += EXTRA_MOVES; G.UI.setMoves(this.board.moves, true);
+            this.hammerOff();
             snd('coin');
             this.state = 'play';
           } },
@@ -256,6 +315,7 @@
       cv.addEventListener('pointerdown', e => {
         if (this.scene !== 'level' || this.state !== 'play' || this.view.busy()) return;
         const cell = this.view.cellAt(e.clientX, e.clientY);
+        if (this.hammerOn) { if (cell) this.useHammer(cell); else { snd('click'); this.hammerOff(); } return; }
         if (!cell) { this.selected = null; this.view.sel = null; return; }
         try { cv.setPointerCapture(e.pointerId); } catch (er) { /* ignore */ }
         this.drag = { cell, x: e.clientX, y: e.clientY, moved: false };

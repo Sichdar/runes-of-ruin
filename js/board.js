@@ -184,6 +184,17 @@
       return ev;
     }
 
+    // The hammer (bought with gold): one blow on any cell, costs no move. [S06]
+    smash(r, c) {
+      const x = this.cell(r, c);
+      if (!x || (!x.t && !x.bone)) return null;
+      const ev = [{ type: 'tap', r, c }];
+      ev.push(this.runBlast(t => this.hit(r, c, t, null)));
+      ev.push(this.fall());
+      this.cascade(ev);
+      return ev;
+    }
+
     // End of level: each move left becomes a javelin, then every power-up left on the board fires.
     bonus(maxN) {
       const ev = [];
