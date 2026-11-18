@@ -22,7 +22,7 @@
     shownLeft: [],
 
     show(name) {
-      for (const id of ['scr-title', 'scr-map', 'hud']) $(id).classList.toggle('hidden', id !== name);
+      for (const id of ['scr-title', 'scr-map', 'scr-cloister', 'hud']) $(id).classList.toggle('hidden', id !== name);
       this.shown = name;
     },
 

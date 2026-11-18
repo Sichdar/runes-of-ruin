@@ -126,6 +126,38 @@ h1.title span { font-size: .45em; letter-spacing: .3em; display: block; margin: 
 .panel .toggles .btn { min-width: 0; font-size: 12px; padding: 9px 12px; }
 .divider { height: 12px; margin: 10px auto 0; width: 70%; background: radial-gradient(ellipse, #b08a52 0, transparent 70%); opacity: .35; border-radius: 50%; }
 .story { text-align: left; font-size: 18px !important; }
+
+/* ---------- cloister [S06] ---------- */
+.stone-ico { display: inline-block; width: 12px; height: 12px; border-radius: 3px; transform: rotate(45deg); vertical-align: 0; margin: 0 2px;
+  background: radial-gradient(circle at 35% 35%, #d8e4ff, #6a7ab0 55%, #2a3050); box-shadow: 0 0 6px rgba(140,170,255,.6); }
+.stones { font-family: var(--head); font-weight: 700; color: #c8d4ff; font-size: 15px; text-shadow: 0 2px 2px #000; white-space: nowrap; }
+.stones::before { content: ''; display: inline-block; width: 11px; height: 11px; border-radius: 3px; transform: rotate(45deg); margin-right: 7px; vertical-align: 0;
+  background: radial-gradient(circle at 35% 35%, #d8e4ff, #6a7ab0 55%, #2a3050); box-shadow: 0 0 6px rgba(140,170,255,.6); }
+.map-purse { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; min-width: 52px; }
+.map-purse .stones { font-size: 14px; padding: 2px 0; position: relative; }
+.map-purse .stones.badge::after { top: 1px; right: auto; left: -26px; width: 18px; height: 18px; font-size: 11px; }
+.perk-note { font-size: 15px; color: #c8d4ff; font-style: italic; }
+.perk-note.off { color: #ff9a70; }
+#scr-cloister { background: linear-gradient(rgba(5,3,3,.8), rgba(5,3,3,.92)); }
+.cl-art { display: block; border-bottom: 2px solid var(--gold-dk); border-top: 2px solid var(--gold-dk); box-shadow: 0 6px 18px rgba(0,0,0,.7); flex: none; }
+.cl-note { font-style: italic; font-size: 14px; color: var(--dim); text-align: center; padding: 8px 16px 2px; max-width: 520px; }
+.cl-note.warn { color: #ff9a70; }
+.cl-list { flex: 1; width: 100%; max-width: 520px; overflow-y: auto; -webkit-overflow-scrolling: touch; touch-action: pan-y; padding: 8px 12px 12px; display: flex; flex-direction: column; gap: 10px; }
+.cl-card { border-radius: 6px; padding: 10px 12px; background: linear-gradient(#221812, #140e0b); border: 2px solid #5a4228; box-shadow: inset 0 0 14px rgba(0,0,0,.7); }
+.cl-card.done { border-color: #8a6a42; background: linear-gradient(#2a2016, #18110c); }
+.cl-card.locked { opacity: .55; }
+.cl-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.cl-name { font-family: var(--head); font-weight: 700; font-size: 16px; letter-spacing: .06em; color: var(--gold); text-transform: uppercase; }
+.cl-pips { display: flex; gap: 5px; }
+.cl-pips i { width: 11px; height: 11px; transform: rotate(45deg); border: 1.5px solid #6a7ab0; border-radius: 2px; background: #10121c; }
+.cl-pips i.on { background: radial-gradient(circle at 35% 35%, #d8e4ff, #6a7ab0 60%, #2a3050); box-shadow: 0 0 6px rgba(140,170,255,.7); }
+.cl-perk { font-size: 16px; margin-top: 4px; color: var(--ink); }
+.cl-next { font-size: 15px; margin-top: 2px; color: var(--dim); font-style: italic; }
+.cl-build { margin-top: 8px; min-width: 0; width: 100%; font-size: 13px; padding: 9px 12px; }
+.cl-foot { width: 100%; max-width: 520px; display: flex; justify-content: center; padding: 6px 12px calc(var(--sab) + 10px); }
+.cl-foot .btn { min-width: 0; font-size: 13px; padding: 10px 18px; }
+.badge::after { content: '!'; position: absolute; top: -9px; right: -9px; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center;
+  font-size: 13px; background: #2a60c0; border: 2px solid #c8d4ff; color: #fff; box-shadow: 0 0 10px rgba(120,160,255,.8); letter-spacing: 0; }
 </style>
 </head>
 <body>
@@ -139,6 +171,7 @@ h1.title span { font-size: .45em; letter-spacing: .3em; display: block; margin: 
   <div class="title-btns">
     <button class="btn big" id="btnPlay">Play</button>
     <button class="btn dark" id="btnTitleMap">Map of the Acts</button>
+    <button class="btn dark" id="btnTitleCloister">The Cloister</button>
   </div>
   <div class="title-foot" id="titleFoot"></div>
 </div>
@@ -147,7 +180,7 @@ h1.title span { font-size: .45em; letter-spacing: .3em; display: block; margin: 
   <div class="map-head">
     <button class="icon-btn" id="btnMapBack" aria-label="Back">&#10094;</button>
     <div class="map-title"><div class="act" id="mapAct">ACT I</div><div class="nm" id="mapName">The Hollow Moors</div></div>
-    <div class="gold" id="mapGold">0</div>
+    <div class="map-purse"><div class="gold" id="mapGold">0</div><button class="stones" id="mapStones" aria-label="The Cloister">0</button></div>
   </div>
   <div class="map-scroll" id="mapScroll"><div class="map-path" id="mapPath"></div></div>
   <div class="map-foot">
@@ -155,6 +188,18 @@ h1.title span { font-size: .45em; letter-spacing: .3em; display: block; margin: 
     <button class="btn" id="btnMapPlay">Play</button>
     <button class="btn dark" id="btnActNext">Act &#10095;</button>
   </div>
+</div>
+
+<div id="scr-cloister" class="screen hidden">
+  <div class="map-head">
+    <button class="icon-btn" id="btnClBack" aria-label="Back">&#10094;</button>
+    <div class="map-title"><div class="act">THE CLOISTER</div><div class="nm">Raise the huntress's sanctuary</div></div>
+    <div class="stones" id="clStones">0</div>
+  </div>
+  <canvas id="cloisterArt" class="cl-art"></canvas>
+  <div class="cl-note" id="clNote"></div>
+  <div class="cl-list" id="cloisterList"></div>
+  <div class="cl-foot"><button class="btn dark" id="btnPerks">Perks: On</button></div>
 </div>
 
 <div id="hud" class="hidden">
@@ -178,6 +223,7 @@ h1.title span { font-size: .45em; letter-spacing: .3em; display: block; margin: 
 <script src="js/audio.js"></script>
 <script src="js/view.js"></script>
 <script src="js/ui.js"></script>
+<script src="js/cloister.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>

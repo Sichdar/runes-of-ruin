@@ -33,6 +33,8 @@
       $('btnActPrev').onclick = () => { snd('click'); this.openMap(this.mapAct - 1); };
       $('btnActNext').onclick = () => { snd('click'); this.openMap(this.mapAct + 1); };
       $('btnPause').onclick = () => { snd('click'); this.pause(); };
+      $('btnTitleCloister').onclick = () => { snd('click'); this.openCloister(() => this.openTitle()); };
+      $('mapStones').onclick = () => { snd('click'); const a = this.mapAct; this.openCloister(() => this.openMap(a)); };
       $('titleFoot').textContent = 'v' + G.VERSION + (S.unlocked > 1 ? ' · level ' + S.unlocked : '');
       this.resize();
       this.openTitle();
@@ -57,6 +59,7 @@
       this.bg = null;
       if (this.scene === 'level') this.layoutBoard();
       if (this.scene === 'map') G.UI.buildMap(this.mapAct, n => this.startLevel(n));
+      if (this.scene === 'cloister') G.Cloister.sizeArt();
     },
     layoutBoard() {
       const top = G.UI.hudBottom() + 10;
@@ -64,7 +67,7 @@
       this.view.layout(this.W, this.H, top, 18 + probe, this.dpr);
     },
     theme() {
-      if (this.scene === 'title') return 'title';
+      if (this.scene === 'title' || this.scene === 'cloister') return 'title';
       if (this.scene === 'level' && this.level) return this.level.theme;
       return G.Levels.act(this.mapAct).theme;
     },
@@ -72,18 +75,31 @@
     // ---------- scenes ----------
     openTitle() {
       this.scene = 'title'; this.state = 'idle';
+      G.Cloister.close();
       G.UI.close();
       G.UI.show('scr-title');
+      $('btnTitleCloister').classList.toggle('badge', G.Cloister.anyAffordable());
       A().music('title');
     },
     openMap(actIdx) {
       const maxAct = G.Levels.actOf(G.Save.data.unlocked);
       this.mapAct = G.clamp(actIdx, 0, maxAct);
       this.scene = 'map'; this.state = 'idle';
+      G.Cloister.close();
       G.UI.close();
       G.UI.show('scr-map');
       G.UI.buildMap(this.mapAct, n => this.startLevel(n));
+      $('mapStones').textContent = G.Cloister.stones();
+      $('mapStones').classList.toggle('badge', G.Cloister.anyAffordable());
       A().music(G.Levels.act(this.mapAct).theme);
+    },
+    // The Cloister screen [S06]; back = where its back button returns to
+    openCloister(back) {
+      this.scene = 'cloister'; this.state = 'idle';
+      G.UI.close();
+      G.UI.show('scr-cloister');
+      G.Cloister.open(back);
+      A().music('title');
     },
     startLevel(n) {
       const S = G.Save.data;
@@ -101,6 +117,16 @@
       this.level = level;
       this.board = new G.Board(level);
       this.buys = 0;
+      // Cloister perks: the Gate adds moves, the Forge puts power-ups on the board [S06]
+      const CL = G.Cloister;
+      const extra = CL.extraMoves();
+      this.board.moves += extra;
+      const armed = CL.arm(this.board);
+      const perkNotes = [];
+      if (extra) perkNotes.push('+' + extra + ' from the Gate');
+      if (armed) perkNotes.push(armed + ' from the Forge');
+      const anyBuilt = CL.AREAS.some(a => CL.stage(a.id) > 0);
+      G.Cloister.close();
       this.scene = 'level'; this.state = 'intro';
       G.UI.show('hud');
       G.UI.setupHud(level, this.board);
@@ -111,7 +137,10 @@
       G.Save.save();
       G.UI.modal({
         title: level.boss ? level.name : 'Level ' + n, sub: level.boss ? 'Level ' + n : level.name,
-        goals: this.board.goals, html: '<b>' + level.moves + '</b> moves', tip: level.tip || '',
+        goals: this.board.goals, tip: level.tip || '',
+        html: '<b>' + this.board.moves + '</b> moves' +
+          (perkNotes.length ? '<br><span class="perk-note">' + perkNotes.join(' · ') + '</span>' : '') +
+          (anyBuilt && !CL.perksOn() ? '<br><span class="perk-note off">Cloister perks are off</span>' : ''),
         buttons: [{ label: 'Fight', cls: 'big', fn: () => { this.state = 'play'; this.idle = 0; } }, { label: 'Back', cls: 'dark', fn: () => this.openMap(actIdx) }]
       });
     },
@@ -134,7 +163,9 @@
     win() {
       this.state = 'end';
       const left = this.board.moves;
-      const gold = 20 + left * 5 + (this.level.boss ? 50 : 0);
+      const gold = Math.round((20 + left * 5 + (this.level.boss ? 50 : 0)) * G.Cloister.goldMult());
+      const firstWin = this.level.n >= G.Save.data.unlocked;
+      const stones = firstWin ? G.Cloister.stonesFor(this.level) : 0;
       this.view.text('Victory', this.W / 2, this.view.by + this.view.R * this.view.cs * .4, 1.3);
       snd('win');
       setTimeout(() => {
@@ -150,11 +181,16 @@
           snd('coin');
           G.UI.modal({
             title: 'Victory', sub: WIN_LINES[n % WIN_LINES.length],
-            html: '+' + gold + ' gold' + (left ? '<br><span style="color:#9c8c74;font-size:15px">' + left + ' moves unused</span>' : ''),
+            html: '+' + gold + ' gold' +
+              (stones ? '<br><span class="stones">+' + stones + ' rune stone' + (stones > 1 ? 's' : '') + '</span>' : '') +
+              (left ? '<br><span style="color:#9c8c74;font-size:15px">' + left + ' moves unused</span>' : ''),
             buttons: [
               { label: 'Next Level', cls: 'big', fn: () => this.startLevel(n + 1) },
+              G.Cloister.anyAffordable()
+                ? { label: 'The Cloister', cls: 'badge', fn: () => this.openCloister(() => this.openMap(G.Levels.actOf(n + 1))) }
+                : null,
               { label: 'Map', cls: 'dark', fn: () => this.openMap(G.Levels.actOf(n + 1)) }
-            ]
+            ].filter(Boolean)
           });
         });
       }, 900);
@@ -162,11 +198,11 @@
     outOfMoves() {
       this.state = 'end';
       const S = G.Save.data;
-      const price = 200 * (this.buys + 1);
+      const price = G.Cloister.movePrice(200 * (this.buys + 1), this.buys); // the Chapel lowers it [S06]
       G.UI.modal({
         title: 'Out of Moves', red: true, sub: 'Still standing in your way:', goals: this.board.goals.filter(g => g.have < g.need), goalsLeft: true,
         buttons: [
-          { label: '+' + EXTRA_MOVES + ' Moves · ' + price + ' gold', disabled: S.gold < price, fn: () => {
+          { label: '+' + EXTRA_MOVES + ' Moves · ' + (price ? price + ' gold' : 'Free'), disabled: S.gold < price, fn: () => {
             S.gold -= price; this.buys++; G.Save.save();
             this.board.moves += EXTRA_MOVES; G.UI.setMoves(this.board.moves, true);
             snd('coin');
@@ -277,6 +313,27 @@
       }
       if (this.ambientKey !== theme && G.Art && G.Art.Ambient) { this.ambientKey = theme; this.ambient = new G.Art.Ambient(theme); }
       if (this.ambient) { this.ambient.update(dt, W, H); this.ambient.draw(g); }
+      // Once the Shrine stands, the title screen shows the restored cloister, faded at its edges [S06]
+      if (this.scene === 'title' && G.Cloister.shrineDone()) {
+        const cw = Math.min(W, 520), ch = Math.round(Math.min(cw * .62, H * .3));
+        const d = this.dpr;
+        if (!this.titleCl || this.titleCl.width !== Math.round(cw * d) || this.titleCl.height !== Math.round(ch * d)) {
+          this.titleCl = document.createElement('canvas');
+          this.titleCl.width = Math.round(cw * d); this.titleCl.height = Math.round(ch * d);
+        }
+        const o = this.titleCl.getContext('2d');
+        o.setTransform(d, 0, 0, d, 0, 0);
+        o.globalCompositeOperation = 'source-over';
+        o.clearRect(0, 0, cw, ch);
+        this.titleT = (this.titleT || 0) + dt;
+        G.Cloister.drawScene(o, 0, 0, cw, ch, this.titleT, dt, true);
+        o.globalCompositeOperation = 'destination-in';
+        const m = o.createRadialGradient(cw / 2, ch * .6, ch * .25, cw / 2, ch * .6, cw * .55);
+        m.addColorStop(0, 'rgba(0,0,0,1)'); m.addColorStop(1, 'rgba(0,0,0,0)');
+        o.fillStyle = m; o.fillRect(0, 0, cw, ch);
+        o.globalCompositeOperation = 'source-over';
+        g.drawImage(this.titleCl, (W - cw) / 2, H * .36, cw, ch);
+      }
       if (this.scene === 'level') {
         g.fillStyle = 'rgba(0,0,0,.28)'; g.fillRect(0, 0, W, H);
         this.view.update(dt);
