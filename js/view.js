@@ -188,6 +188,8 @@
           const [r1, c1] = m.path[m.path.length - 1];
           this.grid[r1][c1] = s;
         }
+      } else if (e.type === 'bossTick') {
+        if (this.hooks.boss) this.hooks.boss(e); // [S07]
       } else if (e.type === 'shuffle') {
         snd('shuffle');
         this.text('The runes shift...', this.W / 2, this.by + this.R * this.cs * .5, .8);
@@ -241,6 +243,15 @@
         return !moving;
       }
       if (e.type === 'shuffle') return e.clock >= .55;
+      if (e.type === 'bossAttack') { // let the blows land first, then the boss strikes [S07]
+        if (!e.fired) {
+          if (this.flyers.length) return false;
+          e.fired = true; e.f0 = e.clock;
+          if (this.hooks.boss) this.hooks.boss(e);
+          this.shake = Math.max(this.shake, 6);
+        }
+        return e.clock - e.f0 >= .5;
+      }
       return true;
     }
 
@@ -263,7 +274,7 @@
         }
         case 'collect': {
           const target = this.hooks.goalPos(it.gi);
-          const key = it.type === 'color' ? 'tile' + it.color : it.type === 'bone' ? 'bone1' : it.type === 'ground' ? 'ground1' : it.type === 'chain' ? 'chain' : 'relic';
+          const key = it.fk || (it.type === 'color' ? 'tile' + it.color : it.type === 'bone' ? 'bone1' : it.type === 'ground' ? 'ground1' : it.type === 'chain' ? 'chain' : 'relic');
           if (target) this.flyers.push({ key, x0: X, y0: Y, x1: target.x, y1: target.y, t: 0, dur: .55 + Math.random() * .15, gi: it.gi });
           else this.hooks.collected(it.gi);
           break;
@@ -307,6 +318,30 @@
           break;
         }
         case 'fx': this.effect(it, X, Y); break;
+        // boss attacks [S07]
+        case 'bind': {
+          this.vc[it.r][it.c].chained = true; this.vc[it.r][it.c].wob = 1;
+          this.burst(X, Y, '#6a2a40', 10, .9, 'shard');
+          this.fx.push({ type: 'ring', x: X, y: Y, t: 0, life: .3, color: '#c04060', r0: cs * .7, r1: cs * .3 });
+          snd('chain');
+          break;
+        }
+        case 'bury': {
+          const s = this.sprites.get(it.id);
+          if (s) { if (this.grid[it.r][it.c] === s) this.grid[it.r][it.c] = null; s.dying = s.dmax = .2; }
+          const v = this.vc[it.r][it.c];
+          v.bone = it.hp; v.wob = 1;
+          this.burst(X, Y, '#d8c090', 14, 1, 'smoke');
+          snd('crack');
+          this.shake = Math.max(this.shake, 4);
+          break;
+        }
+        case 'curse': {
+          this.vc[it.r][it.c].ground = it.lv;
+          this.burst(X, Y, '#802040', 10, .7, 'smoke');
+          snd('ground');
+          break;
+        }
       }
     }
 

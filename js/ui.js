@@ -5,14 +5,18 @@
   const snd = (n, o) => { if (G.Audio && G.Audio.play) G.Audio.play(n, o); };
 
   function goalKey(g) {
+    if (g.type === 'boss') return 'boss:' + g.boss; // [S07]
     return g.type === 'color' ? 'tile' + g.color : g.type === 'bone' ? 'bone1' : g.type === 'ground' ? 'ground1' : g.type === 'chain' ? 'chain' : 'relic';
   }
-  function goalName(g) { return g.type === 'color' ? G.COLOR_NAMES[g.color] : G.GOAL_NAMES[g.type]; }
+  function goalName(g) { return g.type === 'boss' ? 'Health' : g.type === 'color' ? G.COLOR_NAMES[g.color] : G.GOAL_NAMES[g.type]; }
   function icon(key, css) {
     const c = document.createElement('canvas');
     const d = Math.min(3, window.devicePixelRatio || 1);
     c.width = c.height = Math.round(css * d);
-    try { c.getContext('2d').drawImage(G.Art.get(key, c.width), 0, 0); } catch (e) { /* art not ready */ }
+    try {
+      const img = key.indexOf('boss:') === 0 ? G.Boss.icon(key.slice(5), c.width) : G.Art.get(key, c.width);
+      c.getContext('2d').drawImage(img, 0, 0);
+    } catch (e) { /* art not ready */ }
     return c;
   }
 
@@ -166,7 +170,10 @@
         if (lv < S.unlocked) b.classList.add('done');
         else if (lv === S.unlocked) { b.classList.add('current'); currentEl = b; }
         else b.classList.add('locked');
-        b.textContent = i === 14 ? '☠' : lv;
+        // A boss shows its face until it is beaten; then a skull marks it [S07]
+        if (i === 14 && lv >= S.unlocked && G.Boss) { b.appendChild(icon('boss:' + G.Boss.forLevel(lv).id, 62)); b.classList.add('face'); }
+        else b.textContent = i === 14 ? '☠' : lv;
+        if (i === 14 && lv < S.unlocked) b.classList.add('slain');
         b.style.left = pts[i][0] + 'px';
         b.style.top = pts[i][1] + 'px';
         b.onclick = () => { snd('click'); onPick(lv); };

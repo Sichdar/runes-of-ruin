@@ -189,7 +189,7 @@
   }
   function calibrate(n, lvl) {
     const S = G.Save && G.Save.data;
-    const key = 'm' + n;
+    const key = (lvl.bossInfo ? 'b' : 'm') + n; // boss fights got their own key when bosses came in [S07]
     if (S && S.calib && S.calib[key]) return S.calib[key];
     const runs = [];
     for (let i = 0; i < 7; i++) runs.push(botMovesNeeded(lvl, n * 101 + i * 7));
@@ -221,14 +221,25 @@
     },
     get(n) {
       let base;
+      const boss = (n - 1) % 15 === 14;
       if (n <= 15) base = JSON.parse(JSON.stringify(ACT1[n - 1]));
-      else { base = generate(n); base.moves = calibrate(n, base); }
+      else base = generate(n);
+      // Boss fight [S07]: the boss's health is the only goal; obstacles stay, relics go
+      if (boss && G.Boss) {
+        const B = G.Boss.forLevel(n);
+        base.bossInfo = B;
+        base.goals = [{ type: 'boss', n: B.hp, boss: B.id }];
+        base.relics = 0;
+        base.layout = base.layout.map(row => row.replace(/r/g, '#'));
+        base.tip = B.tip;
+      }
+      if (n > 15) base.moves = calibrate(n, base);
       const act = this.act(this.actOf(n));
       base.n = n;
       base.name = this.name(n);
       base.act = act;
       base.theme = act.theme;
-      base.boss = (n - 1) % 15 === 14;
+      base.boss = boss;
       return base;
     }
   };

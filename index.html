@@ -98,6 +98,10 @@ h1.title span { font-size: .45em; letter-spacing: .3em; display: block; margin: 
 .node.locked { background: radial-gradient(#2a2420, #141010); border-color: #4a3a2a; color: #5a4c40; box-shadow: 0 0 0 2px #0a0606; pointer-events: none; }
 .node.current { animation: glow 1.4s infinite; transform: scale(1.12); }
 .node.boss { width: 74px; height: 74px; margin: -37px 0 0 -37px; font-size: 26px; }
+.node.face { padding: 0; overflow: hidden; }
+.node.face canvas { width: 62px; height: 62px; display: block; border-radius: 50%; }
+.node.locked.face canvas { opacity: .45; filter: grayscale(.7); }
+.node.slain { color: #f0e0c0; text-shadow: 0 0 8px #b0281a, 0 2px 2px #000; font-size: 32px; }
 @keyframes glow { 50% { box-shadow: 0 0 0 2px #120604, 0 0 26px 8px rgba(255,60,30,.75); } }
 .map-foot { width: 100%; max-width: 560px; display: flex; justify-content: space-between; align-items: center; padding: 8px 12px calc(var(--sab) + 10px); }
 .map-foot .btn { min-width: 0; padding: 10px 14px; font-size: 13px; }
@@ -229,6 +233,7 @@ h1.title span { font-size: .45em; letter-spacing: .3em; display: block; margin: 
 
 <script src="js/core.js"></script>
 <script src="js/levels.js"></script>
+<script src="js/boss.js"></script>
 <script src="js/board.js"></script>
 <script src="assets/art-overrides.js"></script>
 <script src="js/art.js"></script>

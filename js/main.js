@@ -20,7 +20,12 @@
       const S = G.Save.data;
       this.cv = $('cv');
       this.ctx = this.cv.getContext('2d');
-      this.view.hooks = { goalPos: gi => G.UI.goalPos(gi), collected: gi => G.UI.goalTick(gi) };
+      this.view.hooks = {
+        // blows on a boss fly into the boss, not to the top bar [S07]
+        goalPos: gi => this.bossFx && gi === this.board.boss.gi ? this.bossCenter() : G.UI.goalPos(gi),
+        collected: gi => { G.UI.goalTick(gi); if (this.bossFx && gi === this.board.boss.gi) this.bossFx.hurt = 1; },
+        boss: e => this.bossEvent(e)
+      };
       A().setSound && A().setSound(S.sound);
       A().setMusic && A().setMusic(S.music);
       this.bindInput();
@@ -64,9 +69,29 @@
       if (this.scene === 'cloister') G.Cloister.sizeArt();
     },
     layoutBoard() {
-      const top = G.UI.hudBottom() + 10;
+      let top = G.UI.hudBottom() + 10;
+      // boss levels: a strip above the board for the boss, its health bar and countdown [S07]
+      this.bossBox = null;
+      if (this.bossFx) {
+        const h = Math.round(G.clamp(this.H * .14, 78, 130));
+        this.bossBox = { x: 0, y: top, w: this.W, h };
+        top += h + 6;
+      }
       const probe = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sab')) || 0;
       this.view.layout(this.W, this.H, top, 18 + probe + 56, this.dpr); // +56: room for the hammer button [S06]
+    },
+    bossCenter() {
+      const b = this.bossBox;
+      return b ? { x: b.x + b.w / 2, y: b.y + b.h * .45 } : null;
+    },
+    // the board told us the boss attacked, or its countdown changed [S07]
+    bossEvent(e) {
+      const F = this.bossFx;
+      if (!F) return;
+      if (e.type === 'bossTick') { F.timer = e.timer; F.angry = e.angry; return; }
+      F.atk = 1;
+      snd('roar');
+      this.view.text(G.Boss.SHOUT[e.kind] || 'Beware!', this.W / 2, this.view.by + this.view.R * this.view.cs * .35, .9);
     },
     theme() {
       if (this.scene === 'title' || this.scene === 'cloister') return 'title';
@@ -129,6 +154,8 @@
       if (armed) perkNotes.push(armed + ' from the Forge');
       const anyBuilt = CL.AREAS.some(a => CL.stage(a.id) > 0);
       G.Cloister.close();
+      const B = this.board.boss;
+      this.bossFx = B ? { id: B.id, short: B.short, weak: B.weak, max: this.board.goals[B.gi].need, timer: B.timer, angry: false, hurt: 0, atk: 0, t: 0 } : null; // [S07]
       this.scene = 'level'; this.state = 'intro';
       G.UI.show('hud');
       G.UI.setupHud(level, this.board);
@@ -159,7 +186,8 @@
       });
       buttons.push({ label: 'Back', cls: 'dark', fn: () => this.openMap(o.actIdx) });
       G.UI.modal({
-        title: level.boss ? level.name : 'Level ' + o.n, sub: level.boss ? 'Level ' + o.n : level.name,
+        title: level.bossInfo ? level.bossInfo.name : level.boss ? level.name : 'Level ' + o.n,
+        sub: level.bossInfo ? 'Level ' + o.n + ' · ' + level.name : level.boss ? 'Level ' + o.n : level.name,
         goals: this.board.goals, tip: level.tip || '',
         html: '<b>' + this.board.moves + '</b> moves' +
           (o.perkNotes.length ? '<br><span class="perk-note">' + o.perkNotes.join(' · ') + '</span>' : '') +
@@ -398,6 +426,13 @@
         g.fillStyle = 'rgba(0,0,0,.28)'; g.fillRect(0, 0, W, H);
         this.view.update(dt);
         this.view.draw(g);
+        const F = this.bossFx; // the boss above the board [S07]
+        if (F && this.bossBox) {
+          F.t += dt; F.hurt = Math.max(0, F.hurt - dt * 4); F.atk = Math.max(0, F.atk - dt * 1.6);
+          const gi = this.board.boss.gi, left = G.UI.shownLeft[gi];
+          const b = this.bossBox;
+          G.Boss.drawStrip(g, b.x, b.y, b.w, b.h, Object.assign({}, F, { hp: left === undefined ? F.max : left }));
+        }
         if (this.state === 'play' && !this.view.busy()) {
           this.idle += dt;
           if (this.idle > 6 && !this.view.hint) this.view.showHint(this.pickHint());

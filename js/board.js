@@ -64,8 +64,11 @@
       const auto = { bone: bones, ground: grounds, chain: chains, relic: this.relicsTotal };
       this.goals = level.goals.map(g => ({
         type: g.type, color: g.color === undefined ? -1 : g.color,
-        need: g.n !== undefined ? g.n : (auto[g.type] || 0), have: 0
+        need: g.n !== undefined ? g.n : (auto[g.type] || 0), have: 0, boss: g.boss
       }));
+      // Boss fight [S07]: the boss's health is a goal; every blow on the board hurts it
+      const bi = level.bossInfo;
+      this.boss = bi ? Object.assign({}, bi, { gi: this.goals.findIndex(g => g.type === 'boss'), timer: bi.every, angry: false, turn: 0 }) : null;
       // top (spawn) and bottom (relic exit) playable row of each column
       this.top = []; this.bottom = [];
       for (let c = 0; c < this.C; c++) {
@@ -159,6 +162,7 @@
         }
         ev.push(this.fall());
         this.cascade(ev);
+        this.bossTurn(ev);
         return ev;
       }
       this.swapCells = [a, b];
@@ -169,6 +173,7 @@
       this.moves--;
       ev.push({ type: 'swap', a, b, ok: true });
       this.cascade(ev);
+      this.bossTurn(ev);
       return ev;
     }
 
@@ -181,7 +186,78 @@
       ev.push(this.runBlast(t => this.fireTile(tl, r, c, t, {})));
       ev.push(this.fall());
       this.cascade(ev);
+      this.bossTurn(ev);
       return ev;
+    }
+
+    // ---------- the boss fights back [S07] ----------
+    // After each move: the countdown drops; at 0 the boss attacks. Below half health it attacks every 2 moves.
+    bossTurn(ev) {
+      const B = this.boss;
+      if (!B) return;
+      const g = this.goals[B.gi];
+      if (g.have < g.need && this.moves > 0) {
+        B.angry = g.have * 2 >= g.need;
+        B.timer--;
+        if (B.angry && B.timer > 2) B.timer = 2;
+        if (B.timer <= 0) {
+          let used = B.attacks[B.turn++ % B.attacks.length];
+          const blast = this.runBlast(t => { used = this.attack(used, t); });
+          ev.push({ type: 'bossAttack', kind: used, id: B.id });
+          ev.push(blast);
+          B.timer = B.angry ? 2 : B.every;
+          if (this.listMoves(true).length === 0) ev.push(this.shuffle());
+        }
+      }
+      ev.push({ type: 'bossTick', timer: B.timer, angry: B.angry });
+    }
+
+    attack(kind, t) {
+      const pick = (ok, n) => {
+        const list = [];
+        for (let r = 0; r < this.R; r++) for (let c = 0; c < this.C; c++) { const x = this.cell(r, c); if (x && ok(x, r, c)) list.push({ r, c }); }
+        return this.rng.shuffle(list).slice(0, n);
+      };
+      const plain = x => x.t && x.t.kind === 'n' && !x.t.chained;
+      if (kind === 'burn') {
+        const p = pick(x => x.t && isPow(x.t.kind) && !x.t.chained, 1)[0];
+        if (!p) kind = 'bind';
+        else {
+          const x = this.cells[p.r][p.c];
+          const order = this.rng.shuffle([...Array(this.nColors).keys()]);
+          for (const col of order) { x.t = new Tile('n', col); if (!this.matchAt(p.r, p.c)) break; }
+          this.emit(t, { k: 'transform', r: p.r, c: p.c, tile: x.t, from: null });
+          return 'burn';
+        }
+      }
+      if (kind === 'bind') {
+        pick(plain, 3).forEach((p, i) => { this.cells[p.r][p.c].t.chained = true; this.emit(t + i * 110, { k: 'bind', r: p.r, c: p.c }); });
+      } else if (kind === 'bury') {
+        // never in a column's top two rows, so new tiles can still fall in
+        pick((x, r, c) => plain(x) && r > this.top[c] + 1, 2).forEach((p, i) => {
+          const x = this.cells[p.r][p.c], id = x.t.id;
+          x.t = null; x.bone = 1;
+          this.emit(t + i * 160, { k: 'bury', r: p.r, c: p.c, id, hp: 1 });
+        });
+      } else if (kind === 'curse') {
+        pick(x => x.t && x.t.kind !== 'relic' && x.ground < 2 && !x.bone, 4).forEach((p, i) => {
+          const x = this.cells[p.r][p.c];
+          x.ground++;
+          this.emit(t + i * 90, { k: 'curse', r: p.r, c: p.c, lv: x.ground });
+        });
+      }
+      return kind;
+    }
+
+    // n blows on the boss; each one flies from the board to the boss's health bar
+    hurt(n, t, r, c, fk) {
+      const B = this.boss;
+      if (!B) return;
+      const g = this.goals[B.gi];
+      for (let i = 0; i < n && g.have < g.need; i++) {
+        g.have++;
+        this.emit(t + i * 40, { k: 'collect', gi: B.gi, r, c, type: 'boss', color: -1, fk });
+      }
     }
 
     // The hammer (bought with gold): one blow on any cell, costs no move. [S06]
@@ -277,6 +353,7 @@
         x.bone--;
         this.emit(t, { k: 'bone', r, c, hp: x.bone });
         if (!x.bone) this.goalAdd('bone', -1, t, r, c);
+        this.hurt(1, t, r, c, 'bone1');
         return;
       }
       const tl = x.t;
@@ -285,11 +362,13 @@
           tl.chained = false;
           this.emit(t, { k: 'chain', r, c });
           this.goalAdd('chain', -1, t, r, c);
+          this.hurt(1, t, r, c, 'chain');
           return;
         }
         if (tl.kind === 'relic') return; // relics can't be destroyed, only brought down
         x.t = null;
         this.emit(t, { k: 'remove', r, c, id: tl.id, merge: src && src.merge ? src.merge : null });
+        if (this.boss) this.hurt(tl.kind === 'n' && tl.color === this.boss.weak ? 2 : 1, t, r, c, tl.kind === 'n' ? 'tile' + tl.color : tl.kind);
         if (tl.kind === 'n') this.goalAdd('color', tl.color, t, r, c);
         else if (!tl.fired) {
           tl.fired = true;
@@ -301,6 +380,7 @@
         x.ground--;
         this.emit(t, { k: 'ground', r, c, lv: x.ground });
         if (!x.ground) this.goalAdd('ground', -1, t, r, c);
+        this.hurt(1, t, r, c, 'ground1');
       }
     }
 
@@ -688,6 +768,7 @@
       Object.assign(b, this);
       b.cells = this.cells.map(row => row.map(x => ({ v: x.v, bone: x.bone, ground: x.ground, flag: x.flag, t: x.t ? Object.assign(Object.create(Tile.prototype), x.t) : null })));
       b.goals = this.goals.map(g => Object.assign({}, g));
+      b.boss = this.boss ? Object.assign({}, this.boss) : null;
       b.rng = G.rng(1); b.rng.setState(this.rng.getState());
       b.lastMoved = new Set(this.lastMoved);
       return b;

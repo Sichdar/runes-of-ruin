@@ -220,6 +220,13 @@ window.G = window.G || {};
       tone('sine', 1800, 500, t, 0.22, 0.05);
       tone('sine', 160, 70, t + 0.12, 0.1, 0.15);
     },
+    // a boss attacks [S07]: low growl over rumbling noise
+    roar: function (t) {
+      tone('sawtooth', 95, 52, t, 0.75, 0.2, { a: 0.06, f: ['lowpass', 520, 2] });
+      tone('sawtooth', 98, 50, t + 0.02, 0.75, 0.16, { a: 0.06, det: 25, f: ['lowpass', 420, 2] });
+      tone('square', 47, 38, t, 0.8, 0.08, { a: 0.08, f: ['lowpass', 200, 1] });
+      noise(t, 0.85, 0.22, { type: 'bandpass', f0: 420, f1: 160, q: 1.2, a: 0.08 });
+    },
     bomb: function (t) {
       noise(t, 0.9, 0.5, { type: 'lowpass', f0: 3000, f1: 120, q: 0.7 });
       tone('sine', 110, 28, t, 0.7, 0.55);
