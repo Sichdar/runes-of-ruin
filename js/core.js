@@ -2,7 +2,7 @@
 window.G = window.G || {};
 (function (G) {
   'use strict';
-  G.VERSION = '0.4.0';
+  G.VERSION = '0.5.0';
 
   // Timing constants shared by the game logic and the renderer (milliseconds / cells per second)
   G.T = {
@@ -61,7 +61,8 @@ window.G = window.G || {};
     stats: { wins: 0, losses: 0, played: 0 },
     // Room to grow: home/meta layer and side quests read and write these
     camp: { built: {} },
-    quests: { active: [], done: [] }
+    quests: { active: [], done: [] },
+    daily: { shift: 0, lastWin: -9, streak: 0 } // daily trial (daily.js) [S08]
   };
   G.Save = {
     data: JSON.parse(JSON.stringify(DEFAULTS)),

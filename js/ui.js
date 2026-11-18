@@ -32,7 +32,8 @@
 
     // ---------- HUD ----------
     setupHud(level, board) {
-      $('hudLevel').textContent = (level.act.roman.indexOf('Abyss') === 0 ? level.act.roman : 'Act ' + level.act.roman) + ' · ' + level.n + ' · ' + level.name;
+      $('hudLevel').textContent = level.daily ? 'Daily Trial · ' + level.name : // [S08]
+        (level.act.roman.indexOf('Abyss') === 0 ? level.act.roman : 'Act ' + level.act.roman) + ' · ' + level.n + ' · ' + level.name;
       // Shrink the label until the whole name fits on narrow phones [S05]
       const hl = $('hudLevel'); hl.style.fontSize = '';
       for (let fs = 11; fs > 8 && hl.scrollWidth > hl.clientWidth; fs -= 0.5) hl.style.fontSize = fs - 0.5 + 'px';

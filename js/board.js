@@ -78,8 +78,10 @@
       }
       this.swapCells = null;
       this.lastMoved = new Set();
+      this.tally = Board.newTally(); // what this level did, for the quest board (daily.js) [S08]
       this.fillInitial();
     }
+    static newTally() { return { col: [0, 0, 0, 0, 0, 0], bone: 0, ground: 0, chain: 0, dmg: 0, made: { jav: 0, bomb: 0, raven: 0, chaos: 0 } }; }
 
     // ---------- helpers ----------
     cell(r, c) { return (r >= 0 && r < this.R && c >= 0 && c < this.C && !this.cells[r][c].v) ? this.cells[r][c] : null; }
@@ -256,6 +258,7 @@
       const g = this.goals[B.gi];
       for (let i = 0; i < n && g.have < g.need; i++) {
         g.have++;
+        this.tally.dmg++;
         this.emit(t + i * 40, { k: 'collect', gi: B.gi, r, c, type: 'boss', color: -1, fk });
       }
     }
@@ -352,7 +355,7 @@
       if (x.bone > 0) {
         x.bone--;
         this.emit(t, { k: 'bone', r, c, hp: x.bone });
-        if (!x.bone) this.goalAdd('bone', -1, t, r, c);
+        if (!x.bone) { this.goalAdd('bone', -1, t, r, c); this.tally.bone++; }
         this.hurt(1, t, r, c, 'bone1');
         return;
       }
@@ -362,6 +365,7 @@
           tl.chained = false;
           this.emit(t, { k: 'chain', r, c });
           this.goalAdd('chain', -1, t, r, c);
+          this.tally.chain++;
           this.hurt(1, t, r, c, 'chain');
           return;
         }
@@ -369,7 +373,7 @@
         x.t = null;
         this.emit(t, { k: 'remove', r, c, id: tl.id, merge: src && src.merge ? src.merge : null });
         if (this.boss) this.hurt(tl.kind === 'n' && tl.color === this.boss.weak ? 2 : 1, t, r, c, tl.kind === 'n' ? 'tile' + tl.color : tl.kind);
-        if (tl.kind === 'n') this.goalAdd('color', tl.color, t, r, c);
+        if (tl.kind === 'n') { this.goalAdd('color', tl.color, t, r, c); if (tl.color >= 0) this.tally.col[tl.color]++; }
         else if (!tl.fired) {
           tl.fired = true;
           this.emit(t, { k: 'fx', fx: 'trigger', r, c, kind: tl.kind });
@@ -379,7 +383,7 @@
       if (x.ground > 0) {
         x.ground--;
         this.emit(t, { k: 'ground', r, c, lv: x.ground });
-        if (!x.ground) this.goalAdd('ground', -1, t, r, c);
+        if (!x.ground) { this.goalAdd('ground', -1, t, r, c); this.tally.ground++; }
         this.hurt(1, t, r, c, 'ground1');
       }
     }
@@ -633,6 +637,7 @@
             if (x && !x.t && !x.bone) {
               const nt = new Tile(kind);
               x.t = nt;
+              this.tally.made[powClass(kind)]++;
               this.emit(tt, { k: 'spawnPower', r: sp.r, c: sp.c, tile: nt });
             }
           });
@@ -771,6 +776,7 @@
       b.boss = this.boss ? Object.assign({}, this.boss) : null;
       b.rng = G.rng(1); b.rng.setState(this.rng.getState());
       b.lastMoved = new Set(this.lastMoved);
+      b.tally = Board.newTally(); // bot test moves never count for quests [S08]
       return b;
     }
     progress() {

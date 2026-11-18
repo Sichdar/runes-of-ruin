@@ -101,8 +101,8 @@
   // ---------- endless generator ----------
   function sym(rows, C, r, c, ch) { rows[r][c] = ch; rows[r][C - 1 - c] = ch; }
 
-  function generate(n) {
-    const rng = G.rng(n * 7919 + 1013);
+  function generate(n, seed) { // seed: the daily trial builds a level from the date [S08]
+    const rng = G.rng(seed !== undefined ? seed : n * 7919 + 1013);
     const actIdx = Math.floor((n - 1) / 15), pos = (n - 1) % 15;
     const tier = Math.min(actIdx, 6);
     const C = rng.pick(tier < 2 ? [8, 9, 9] : [9, 9, 8]);
@@ -187,8 +187,8 @@
     }
     return b.isWon() ? used : 70;
   }
-  function calibrate(n, lvl) {
-    const S = G.Save && G.Save.data;
+  function calibrate(n, lvl, noCache) { // noCache: the daily trial keeps its own [S08]
+    const S = noCache ? null : G.Save && G.Save.data;
     const key = (lvl.bossInfo ? 'b' : 'm') + n; // boss fights got their own key when bosses came in [S07]
     if (S && S.calib && S.calib[key]) return S.calib[key];
     const runs = [];
@@ -204,6 +204,7 @@
   // ---------- public ----------
   G.Levels = {
     count: Infinity,
+    generate, calibrate, // used by the daily trial [S08]
     actOf(n) { return Math.floor((n - 1) / 15); },
     act(idx) {
       if (idx < ACTS.length) return Object.assign({ idx, first: idx * 15 + 1 }, ACTS[idx]);

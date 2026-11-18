@@ -42,6 +42,10 @@
       $('btnHammer').onclick = () => this.hammerClick();
       $('btnTitleCloister').onclick = () => { snd('click'); this.openCloister(() => this.openTitle()); };
       $('mapStones').onclick = () => { snd('click'); const a = this.mapAct; this.openCloister(() => this.openMap(a)); };
+      // Daily trial and quest board (S4) [S08]
+      $('btnDaily').onclick = () => { snd('click'); this.startDaily(); };
+      $('btnQuests').onclick = () => { snd('click'); G.Daily.openBoard(() => this.openTitle()); };
+      $('btnSkipDay').onclick = () => { snd('click'); G.Daily.skipDay(); this.skipLabel(); };
       $('titleFoot').textContent = 'v' + G.VERSION + (S.unlocked > 1 ? ' · level ' + S.unlocked : '');
       this.resize();
       this.openTitle();
@@ -106,7 +110,13 @@
       G.UI.close();
       G.UI.show('scr-title');
       $('btnTitleCloister').classList.toggle('badge', G.Cloister.anyAffordable());
+      $('btnDaily').classList.toggle('badge', !G.Daily.wonToday());
+      $('btnQuests').classList.toggle('badge', G.Daily.anyToCollect());
       A().music('title');
+    },
+    skipLabel() {
+      const s = G.Daily.shift();
+      $('btnSkipDay').textContent = 'Test: skip a day' + (s ? ' (+' + s + ')' : '');
     },
     openMap(actIdx) {
       const maxAct = G.Levels.actOf(G.Save.data.unlocked);
@@ -126,6 +136,7 @@
       G.UI.close();
       G.UI.show('scr-cloister');
       G.Cloister.open(back);
+      this.skipLabel();
       A().music('title');
     },
     startLevel(n) {
@@ -141,6 +152,18 @@
         });
         return;
       }
+      this.enter(level, n, actIdx);
+    },
+    // Today's daily trial (S4) [S08]: the bot works out its moves once a day, so show a short note first
+    startDaily() {
+      G.UI.modal({ title: 'Daily Trial', sub: 'The stones are being cast…', buttons: [] });
+      setTimeout(() => {
+        const level = G.Daily.level();
+        this.enter(level, level.n, level.act.idx);
+      }, 60);
+    },
+    enter(level, n, actIdx) {
+      const S = G.Save.data;
       this.level = level;
       this.board = new G.Board(level);
       this.buys = 0;
@@ -150,6 +173,7 @@
       this.board.moves += extra;
       const armed = CL.arm(this.board);
       const perkNotes = [];
+      if (level.startPows) CL.arm(this.board, level.startPows); // the daily Ambush's free fire bomb [S08]
       if (extra) perkNotes.push('+' + extra + ' from the Gate');
       if (armed) perkNotes.push(armed + ' from the Forge');
       const anyBuilt = CL.AREAS.some(a => CL.stage(a.id) > 0);
@@ -184,12 +208,16 @@
           this.showIntro();
         }
       });
-      buttons.push({ label: 'Back', cls: 'dark', fn: () => this.openMap(o.actIdx) });
+      buttons.push({ label: 'Back', cls: 'dark', fn: () => level.daily ? this.openTitle() : this.openMap(o.actIdx) });
+      const D = G.Daily, streak = D.streak();
+      const dailyNote = !level.daily ? '' : D.wonToday()
+        ? '<br><span class="perk-note">Today\'s reward is claimed; replays pay nothing</span>'
+        : '<br><span class="perk-note">First win today: ' + 150 + ' gold and 1 rune stone' + (streak ? ' · streak ' + streak + ' day' + (streak > 1 ? 's' : '') : '') + '</span>';
       G.UI.modal({
-        title: level.bossInfo ? level.bossInfo.name : level.boss ? level.name : 'Level ' + o.n,
-        sub: level.bossInfo ? 'Level ' + o.n + ' · ' + level.name : level.boss ? 'Level ' + o.n : level.name,
+        title: level.daily ? 'Daily Trial' : level.bossInfo ? level.bossInfo.name : level.boss ? level.name : 'Level ' + o.n,
+        sub: level.daily ? level.name : level.bossInfo ? 'Level ' + o.n + ' · ' + level.name : level.boss ? 'Level ' + o.n : level.name,
         goals: this.board.goals, tip: level.tip || '',
-        html: '<b>' + this.board.moves + '</b> moves' +
+        html: '<b>' + this.board.moves + '</b> moves' + dailyNote +
           (o.perkNotes.length ? '<br><span class="perk-note">' + o.perkNotes.join(' · ') + '</span>' : '') +
           (o.anyBuilt && !CL.perksOn() ? '<br><span class="perk-note off">Cloister perks are off</span>' : '') +
           (o.bomb ? '' : '<br><span class="gold-note">You have ' + S.gold + ' gold</span>'),
@@ -260,6 +288,8 @@
         this.view.play(this.board.bonus(12), () => {
           const S = G.Save.data;
           const n = this.level.n;
+          const quests = this.questNote(true);
+          if (this.level.daily) return this.winDaily(quests);
           if (n >= S.unlocked) S.unlocked = n + 1;
           S.gold += gold;
           S.stats.wins++;
@@ -269,7 +299,7 @@
             title: 'Victory', sub: WIN_LINES[n % WIN_LINES.length],
             html: '+' + gold + ' gold' +
               (stones ? '<br><span class="stones">+' + stones + ' rune stone' + (stones > 1 ? 's' : '') + '</span>' : '') +
-              (left ? '<br><span style="color:#9c8c74;font-size:15px">' + left + ' moves unused</span>' : ''),
+              (left ? '<br><span style="color:#9c8c74;font-size:15px">' + left + ' moves unused</span>' : '') + quests,
             buttons: [
               { label: 'Next Level', cls: 'big', fn: () => this.startLevel(n + 1) },
               G.Cloister.anyAffordable()
@@ -280,6 +310,31 @@
           });
         });
       }, 900);
+    },
+    // Add what this level did to the quest board; returns a line for the end panel [S08]
+    questNote(won) {
+      if (!this.board || !this.board.tally) return '';
+      const fin = G.Daily.record(this.board.tally, won, !!(this.level && this.level.daily));
+      this.board.tally = null; // counted once
+      return fin.length ? '<br><span class="quest-done">Quest done: ' + fin.map(x => G.Daily.text(x)).join(', ') + '</span>' : '';
+    },
+    winDaily(quests) {
+      const S = G.Save.data;
+      S.stats.wins++; G.Save.save();
+      const r = G.Daily.reward();
+      snd('coin');
+      const html = r
+        ? '+' + r.gold + ' gold<br><span class="stones">+' + r.stones + ' rune stone</span>' +
+          '<br><span class="perk-note">Streak: ' + r.streak + ' day' + (r.streak > 1 ? 's' : '') + (r.bonus ? ' · bonus +' + r.bonus + ' gold' : '') + '</span>'
+        : '<span class="gold-note">Today\'s reward was already claimed. A new trial comes tomorrow.</span>';
+      G.UI.modal({
+        title: 'Trial Won', sub: WIN_LINES[S.stats.wins % WIN_LINES.length], html: html + quests,
+        buttons: [
+          { label: 'Onward', cls: 'big', fn: () => this.openTitle() },
+          G.Daily.anyToCollect() ? { label: 'Quest Board', cls: 'badge', fn: () => G.Daily.openBoard(() => this.openTitle()) } : null,
+          G.Cloister.anyAffordable() ? { label: 'The Cloister', cls: 'badge', fn: () => this.openCloister(() => this.openTitle()) } : null
+        ].filter(Boolean)
+      });
     },
     outOfMoves() {
       this.state = 'end';
@@ -310,10 +365,12 @@
       const S = G.Save.data;
       S.stats.losses++; G.Save.save();
       snd('lose');
-      const n = this.level.n;
+      const n = this.level.n, daily = this.level.daily;
+      const quests = this.questNote(false);
       G.UI.modal({
-        title: 'You Have Fallen', red: true, sub: LOSE_LINES[S.stats.losses % LOSE_LINES.length],
-        buttons: [{ label: 'Try Again', cls: 'big', fn: () => this.startLevel(n) }, { label: 'Map', cls: 'dark', fn: () => this.openMap(G.Levels.actOf(n)) }]
+        title: 'You Have Fallen', red: true, sub: LOSE_LINES[S.stats.losses % LOSE_LINES.length], html: quests ? quests.slice(4) : '',
+        buttons: [{ label: 'Try Again', cls: 'big', fn: () => daily ? this.startDaily() : this.startLevel(n) },
+          daily ? { label: 'Title', cls: 'dark', fn: () => this.openTitle() } : { label: 'Map', cls: 'dark', fn: () => this.openMap(G.Levels.actOf(n)) }]
       });
     },
     pause() {
@@ -322,15 +379,16 @@
       this.state = 'paused';
       const S = G.Save.data;
       G.UI.modal({
-        title: 'Paused', sub: 'Level ' + this.level.n + ' · ' + this.level.name,
+        title: 'Paused', sub: (this.level.daily ? 'Daily Trial' : 'Level ' + this.level.n) + ' · ' + this.level.name,
         toggles: [
           { label: 'Sound', get: () => S.sound, set: v => { S.sound = v; G.Save.save(); A().setSound(v); } },
           { label: 'Music', get: () => S.music, set: v => { S.music = v; G.Save.save(); A().setMusic(v); } }
         ],
         buttons: [
           { label: 'Resume', cls: 'big', fn: () => { this.state = prev === 'intro' ? 'play' : prev; } },
-          { label: 'Restart', cls: 'dark', fn: () => this.startLevel(this.level.n) },
-          { label: 'Retreat to Map', cls: 'dark', fn: () => this.openMap(G.Levels.actOf(this.level.n)) }
+          // progress so far still counts for quests when leaving early [S08]
+          { label: 'Restart', cls: 'dark', fn: () => { this.questNote(false); this.level.daily ? this.startDaily() : this.startLevel(this.level.n); } },
+          { label: this.level.daily ? 'Retreat' : 'Retreat to Map', cls: 'dark', fn: () => { this.questNote(false); this.level.daily ? this.openTitle() : this.openMap(G.Levels.actOf(this.level.n)); } }
         ]
       });
     },

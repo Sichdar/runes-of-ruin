@@ -35,7 +35,9 @@
     stage,
     // stones a first win of level n gives
     stonesFor(level) { return level && level.boss ? 3 : 1; },
-    earned() { const n = Math.max(0, G.Save.data.unlocked - 1); return n + 2 * Math.floor(n / 15); },
+    // camp.bonus = stones won in daily trials, the only stones that are stored [S08]
+    earned() { const n = Math.max(0, G.Save.data.unlocked - 1); return n + 2 * Math.floor(n / 15) + (camp().bonus || 0); },
+    addBonus(k) { camp().bonus = (camp().bonus || 0) + k; G.Save.save(); },
     spent() { let s = 0; for (const a of AREAS) for (let i = 0; i < stage(a.id); i++) s += a.costs[i]; return s; },
     stones() { return this.earned() - this.spent(); },
     perksOn() { return !camp().perksOff; },
