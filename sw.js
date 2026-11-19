@@ -2,7 +2,7 @@
  * Makes the game load offline.
  * To ship an update to phones: bump CACHE_VERSION below (e.g. 'v2'), then re-upload the files.
  */
-const CACHE_VERSION = 'v5';
+const CACHE_VERSION = 'v6';
 const CACHE_NAME = 'runes-of-ruin-' + CACHE_VERSION;
 const FONT_CACHE = 'runes-of-ruin-fonts'; // survives version bumps on purpose
 

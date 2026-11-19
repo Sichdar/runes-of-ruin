@@ -146,6 +146,8 @@
       const actIdx = G.Levels.actOf(n);
       if ((n - 1) % 15 === 0 && !S.seenIntro[actIdx]) {
         const act = level.act;
+        // coming straight from a won level: show the new act's map behind the story card, not the old board [S09]
+        if (this.scene === 'level') this.openMap(actIdx);
         G.UI.modal({
           title: act.roman.indexOf('Abyss') === 0 ? act.name : 'Act ' + act.roman, sub: act.idx < 5 ? act.name : '', body: act.story, story: true,
           buttons: [{ label: 'Onward', fn: () => { S.seenIntro[actIdx] = true; G.Save.save(); this.startLevel(n); } }]

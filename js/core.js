@@ -2,7 +2,7 @@
 window.G = window.G || {};
 (function (G) {
   'use strict';
-  G.VERSION = '0.5.0';
+  G.VERSION = '0.5.1';
 
   // Timing constants shared by the game logic and the renderer (milliseconds / cells per second)
   G.T = {
