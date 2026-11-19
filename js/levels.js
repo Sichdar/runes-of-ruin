@@ -12,13 +12,16 @@
   'use strict';
 
   // Board colours per theme (backgrounds are drawn by art.js)
+  // [S09] cells made lighter and less coloured so the squares stand out; Act IV's were dark red, close to the red tiles
   G.THEMES = {
-    moors:  { cellA: '#2b2722', cellB: '#231f1b', frame: '#3a2c20', frameHi: '#8a6a42', accent: '#b0281a' },
-    desert: { cellA: '#3a2d20', cellB: '#30251a', frame: '#4a3420', frameHi: '#b08a50', accent: '#d07020' },
-    jungle: { cellA: '#1f2a21', cellB: '#19221b', frame: '#26301f', frameHi: '#6e8a4a', accent: '#40b060' },
-    hell:   { cellA: '#2c1614', cellB: '#24100e', frame: '#3a120c', frameHi: '#a0402a', accent: '#ff5020' },
-    frost:  { cellA: '#1f2731', cellB: '#192029', frame: '#2a3442', frameHi: '#8aa0b8', accent: '#80c0ff' },
-    abyss:  { cellA: '#1b151f', cellB: '#151019', frame: '#2a1a30', frameHi: '#7a5090', accent: '#c060ff' }
+    moors:  { cellA: '#3b352e', cellB: '#302b25', frame: '#3a2c20', frameHi: '#8a6a42', accent: '#b0281a' },
+    desert: { cellA: '#47392a', cellB: '#3b2f22', frame: '#4a3420', frameHi: '#b08a50', accent: '#d07020' },
+    jungle: { cellA: '#2c3a2e', cellB: '#243026', frame: '#26301f', frameHi: '#6e8a4a', accent: '#40b060' },
+    hell:   { cellA: '#3a302c', cellB: '#2e2522', frame: '#3a120c', frameHi: '#a0402a', accent: '#ff5020' },
+    frost:  { cellA: '#2d3744', cellB: '#252e39', frame: '#2a3442', frameHi: '#8aa0b8', accent: '#80c0ff' },
+    city:   { cellA: '#38372c', cellB: '#2e2d24', frame: '#34301c', frameHi: '#a09650', accent: '#b8c040' },
+    storm:  { cellA: '#323440', cellB: '#292b35', frame: '#262838', frameHi: '#9098c0', accent: '#a0b8ff' },
+    abyss:  { cellA: '#2c2433', cellB: '#241c2a', frame: '#2a1a30', frameHi: '#7a5090', accent: '#c060ff' }
   };
 
   G.COLOR_NAMES = ['Blood Vials', 'Sapphires', 'Emeralds', 'Cursed Coins', 'Soul Shards', 'Skulls'];
@@ -34,16 +37,24 @@
     { roman: 'IV', name: 'The Burning Gate', theme: 'hell',
       story: 'Beneath the last temple the ground opens onto fire. This is the Burning Gate, where the darkness was born.\n\nNo huntress has walked here and returned. You will be the first.' },
     { roman: 'V', name: 'The Frostspire', theme: 'frost',
-      story: 'The thing you hunt has fled up the frozen spire, toward the old stone that holds the world together. If the stone breaks, everything breaks.\n\nOne climb left, Kaela.' }
+      story: 'The thing you hunt has fled up the frozen spire, toward the old stone that holds the world together. If the stone breaks, everything breaks.\n\nOne climb left, Kaela.' },
+    // Acts VI and VII [S09]
+    { roman: 'VI', name: 'The Plague City', theme: 'city',
+      story: 'The stone holds, but the darkness did not die on the summit. It crept down the far side of the mountain, into Vellmoor, the last city of the living.\n\nIts bells ring every night now. No one alive pulls the ropes.' },
+    { roman: 'VII', name: 'The Storm Citadel', theme: 'storm',
+      story: 'Above the plague city a stair of broken stone climbs into the storm, to a citadel that floats where the sky should be.\n\nThe Hollow King waits there, wearing a crown made from everything you have slain. End it, Kaela.' }
   ];
-  const ABYSS_STORY = 'The stone holds. The mountain is quiet.\n\nBut beneath every grave there is another, and the Abyss has no floor. Descend as far as you dare.';
-  const ACT_BOSS = ['The Widow\'s Throne', 'Tomb of the Sand Wyrm', 'Altar of the Drowned Council', 'Pit of the First Flame', 'The Heartstone Summit'];
+  const ABYSS_STORY = 'The Hollow King is dust and the storm is quiet.\n\nBut beneath every grave there is another, and the Abyss has no floor. Every circle down is crueller than the last. Descend as far as you dare.';
+  const ACT_BOSS = ['The Widow\'s Throne', 'Tomb of the Sand Wyrm', 'Altar of the Drowned Council', 'Pit of the First Flame', 'The Heartstone Summit',
+    'The Cathedral of Rot', 'Throne of the Hollow King'];
   const WORDS = [
     null,
     { a: ['Sunken', 'Bleached', 'Howling', 'Forgotten', 'Sealed', 'Cracked', 'Silent', 'Gilded', 'Thirsting'], b: ['Tombs', 'Oasis', 'Dunes', 'Necropolis', 'Canyon', 'Vault', 'Bazaar', 'Pits', 'Colonnade'] },
     { a: ['Weeping', 'Rotting', 'Flooded', 'Strangled', 'Serpent', 'Black', 'Hollow', 'Fevered', 'Moonless'], b: ['Temple', 'Marsh', 'Causeway', 'Shrine', 'Ziggurat', 'Delta', 'Canopy', 'Sluice', 'Reliquary'] },
     { a: ['Burning', 'Screaming', 'Molten', 'Chained', 'Flayed', 'Ashen', 'Writhing', 'Sulphur', 'Bleeding'], b: ['Steps', 'Forge', 'River', 'Plains', 'Bastion', 'Spires', 'Pits', 'Gate', 'Throne Road'] },
-    { a: ['Frozen', 'Bitter', 'Shattered', 'White', 'Howling', 'Pale', 'Glacial', 'Silent', 'Iron'], b: ['Pass', 'Crags', 'Halls', 'Ridge', 'Barrows', 'Glacier', 'Bridge', 'Watch', 'Ascent'] }
+    { a: ['Frozen', 'Bitter', 'Shattered', 'White', 'Howling', 'Pale', 'Glacial', 'Silent', 'Iron'], b: ['Pass', 'Crags', 'Halls', 'Ridge', 'Barrows', 'Glacier', 'Bridge', 'Watch', 'Ascent'] },
+    { a: ['Plague', 'Shuttered', 'Rotting', 'Burned', 'Quarantined', 'Weeping', 'Fevered', 'Abandoned', 'Tolling'], b: ['Market', 'Alleys', 'Gallows', 'Hospice', 'Bell Tower', 'Sewers', 'Square', 'Ward', 'Bridge'] },
+    { a: ['Thundering', 'Shattered', 'Floating', 'Storm-Torn', 'Hollow', 'Crowned', 'Broken', 'Lightning', 'Endless'], b: ['Stair', 'Rampart', 'Spire', 'Causeway', 'Hall', 'Vault', 'Gallery', 'Keep', 'Throne Road'] }
   ];
   const ACT1_NAMES = ['Moorside Camp', 'The Weeping Fen', 'Burial Barrows', 'Cold Hollow', 'Ravenhill', 'The Drowned Chapel',
     'Gallows Road', 'Ashen Field', 'Bonewood', 'The Old Mill', 'Tower of Bells', 'The Outer Cloister',
@@ -104,7 +115,8 @@
   function generate(n, seed) { // seed: the daily trial builds a level from the date [S08]
     const rng = G.rng(seed !== undefined ? seed : n * 7919 + 1013);
     const actIdx = Math.floor((n - 1) / 15), pos = (n - 1) % 15;
-    const tier = Math.min(actIdx, 6);
+    // [S09] tier no longer stops at 6: the Abyss (from level 106) keeps getting harder, see the caps below
+    const tier = actIdx, tc = Math.min(tier, 10);
     const C = rng.pick(tier < 2 ? [8, 9, 9] : [9, 9, 8]);
     const R = 8 + rng.int(3);
     const rows = [];
@@ -123,7 +135,7 @@
     const nGoals = pos === 14 ? 3 : (rng() < .15 ? 1 : 2);
     const kinds = pool.slice(0, nGoals);
     const goals = [];
-    const colors = tier >= 2 && rng() < .25 ? 6 : 5;
+    const colors = tier >= 2 && rng() < Math.min(.6, .25 + Math.max(0, tier - 6) * .05) ? 6 : 5; // 6 colours more often deeper down [S09]
     let relics = 0, colorNeed = 0;
     const hpMax = Math.min(3, 1 + Math.floor((tier + pos / 15) / 1.5));
     const hpCh = hp => hp === 3 ? 'X' : hp === 2 ? 'B' : 'b';
@@ -143,7 +155,7 @@
         for (let r = r0; r <= r1; r++) for (let c = c0; c < C - c0; c++) if (free(r, c) && (rng() < .85)) { rows[r][c] = ch; groundLayers += lv; }
         goals.push({ type: 'ground' });
       } else if (k === 'chain') {
-        const cnt = 3 + rng.int(3 + tier);
+        const cnt = 3 + rng.int(3 + tc);
         for (let i = 0; i < cnt; i++) { const r = 1 + rng.int(R - 2), c = rng.int(Math.floor(C / 2)); if (free(r, c) || rows[r][c] === 'g') { sym(rows, C, r, c, rows[r][c] === 'g' ? 'h' : 'c'); chains += 2; } }
         goals.push({ type: 'chain' });
       } else if (k === 'relic') {
@@ -151,7 +163,7 @@
         goals.push({ type: 'relic' });
       } else {
         const col = rng.int(colors);
-        colorNeed = 24 + rng.int(10) + tier * 4;
+        colorNeed = 24 + rng.int(10) + tc * 4;
         goals.push({ type: 'color', color: col, n: colorNeed });
       }
     }
@@ -189,13 +201,16 @@
   }
   function calibrate(n, lvl, noCache) { // noCache: the daily trial keeps its own [S08]
     const S = noCache ? null : G.Save && G.Save.data;
-    const key = (lvl.bossInfo ? 'b' : 'm') + n; // boss fights got their own key when bosses came in [S07]
+    // boss fights got their own key when bosses came in [S07]; levels past 75 changed with Acts VI-VII [S09]
+    const key = (lvl.bossInfo ? 'b' : 'm') + n + (n > 75 ? 'e' : '');
     if (S && S.calib && S.calib[key]) return S.calib[key];
     const runs = [];
     for (let i = 0; i < 7; i++) runs.push(botMovesNeeded(lvl, n * 101 + i * 7));
     runs.sort((a, b) => a - b);
     const need = runs[4];
-    const slack = SLACK[Math.min(lvl.tier + 1, SLACK.length - 1)] - lvl.pos * 0.005;
+    // [S09] past Act VII the spare moves keep shrinking a little every Abyss circle, down to 8% over the bot
+    const deep = Math.max(0, lvl.tier - 6);
+    const slack = (deep ? Math.max(1.08, 1.2 - deep * 0.02) : SLACK[Math.min(lvl.tier + 1, SLACK.length - 1)]) - lvl.pos * 0.005;
     const moves = G.clamp(Math.ceil(need * slack) + 1, 15, 45);
     if (S) { S.calib = S.calib || {}; S.calib[key] = moves; G.Save.save(); }
     return moves;

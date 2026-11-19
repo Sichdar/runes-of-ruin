@@ -12,12 +12,18 @@
     { id: 'wyrm', name: 'The Sand Wyrm', short: 'The Wyrm', weak: 1, attacks: ['bury'] },
     { id: 'council', name: 'The Drowned Council', short: 'The Council', weak: 2, attacks: ['curse'], they: true },
     { id: 'flame', name: 'Lord of the First Flame', short: 'The Flame Lord', weak: 3, attacks: ['burn'] },
-    { id: 'warden', name: 'The Heartstone Warden', short: 'The Warden', weak: 4, attacks: ['bind', 'bury', 'curse', 'burn'] }
+    { id: 'warden', name: 'The Heartstone Warden', short: 'The Warden', weak: 4, attacks: ['bind', 'bury', 'curse', 'burn'] },
+    // Acts VI and VII [S09]
+    { id: 'bishop', name: 'The Plague Bishop', short: 'The Bishop', weak: 1, attacks: ['curse', 'bury'] },
+    { id: 'king', name: 'The Hollow King', short: 'The King', weak: 0, attacks: ['bind', 'bury', 'curse', 'burn'] }
   ];
+  const ACTS = 7;             // story acts with their own boss; the Abyss comes after [S09]
   // Health of each act's boss (tuned with the bot, tools/tune.html), then the Abyss bosses grow
   // (a greedy bot does about 13 to 20 damage a move; generated boss levels then get their moves from the bot)
-  const HP = [650, 340, 380, 420, 460];
-  const ABYSS_HP = 480, ABYSS_STEP = 20;
+  const HP = [650, 340, 380, 420, 460, 490, 520];
+  // [S09] Abyss: health grows each circle up to a cap the bot can still beat in 45 moves;
+  // from the 6th circle on the bosses attack every 2 moves from the start
+  const ABYSS_HP = 540, ABYSS_STEP = 10, ABYSS_MAX = 580;
   const EVERY = 3;            // moves between attacks; 2 once the boss is below half health
   const ATTACK_TEXT = { bind: 'binds 3 tiles in thorns', bury: 'buries 2 tiles under bones', curse: 'spreads cursed ground under 4 tiles', burn: 'burns a power-up back into a plain tile' };
   const SHOUT = { bind: 'Thorns!', bury: 'Buried!', curse: 'Cursed!', burn: 'Burned!' };
@@ -26,13 +32,15 @@
 
   function forLevel(n) {
     const act = Math.floor((n - 1) / 15);
-    const B = act < 5 ? BOSSES[act] : BOSSES[(act - 5) % 5];
-    const hp = act < 5 ? HP[act] : ABYSS_HP + (act - 5) * ABYSS_STEP;
+    const circle = act - ACTS; // 0 = first Abyss circle
+    const B = act < ACTS ? BOSSES[act] : BOSSES[circle % BOSSES.length];
+    const hp = act < ACTS ? HP[act] : Math.min(ABYSS_MAX, ABYSS_HP + circle * ABYSS_STEP);
+    const every = act >= ACTS + 5 ? 2 : EVERY;
     const who = B.she ? 'she' : B.they ? 'they' : 'it';
     const what = B.attacks.length > 1 ? 'uses a new attack' : ATTACK_TEXT[B.attacks[0]];
-    const tip = 'Weak to ' + G.COLOR_NAMES[B.weak] + ': they hit twice as hard. Every ' + EVERY + ' moves ' + who + ' ' + what +
-      '; below half health, every 2. Power-ups hit hardest.';
-    return { id: B.id, name: B.name, short: B.short, weak: B.weak, attacks: B.attacks.slice(), hp, every: EVERY, tip };
+    const tip = 'Weak to ' + G.COLOR_NAMES[B.weak] + ': they hit twice as hard. Every ' + every + ' moves ' + who + ' ' + what +
+      (every > 2 ? '; below half health, every 2' : '') + '. Power-ups hit hardest.';
+    return { id: B.id, name: B.name, short: B.short, weak: B.weak, attacks: B.attacks.slice(), hp, every, tip };
   }
 
   // ---------------------------------------------------------------- drawing
@@ -232,6 +240,92 @@
       for (const sx of [-1, 1]) { g.beginPath(); g.moveTo(sx * s * .1, -s * .78); g.lineTo(sx * s * .24, -s * .98); g.lineTo(sx * s * .13, -s * .74); g.fill(); }
       g.fillStyle = '#05080c'; g.fillRect(-s * .08, -s * .74, s * .16, s * .025);
       eyes(g, 0, -s * .728, s * .04, s * .012, st.angry ? '#ff4060' : '#80d8ff', s * .08);
+      g.restore();
+    },
+
+    // Act VI [S09]: a robed bishop in a beaked plague mask, swinging a censer of green smoke
+    bishop(g, s, st) {
+      const t = st.t, sway = Math.sin(t * 1.1) * s * .012;
+      // green smoke pooling on the ground
+      g.save(); g.globalAlpha = .5;
+      for (let i = 0; i < 5; i++) {
+        const x = Math.sin(t * .6 + i * 1.7) * s * .4, r = s * (.1 + .04 * Math.sin(t + i));
+        const gr = g.createRadialGradient(x, -r * .3, 0, x, -r * .3, r);
+        gr.addColorStop(0, 'rgba(150,200,60,.55)'); gr.addColorStop(1, 'rgba(150,200,60,0)');
+        g.fillStyle = gr; g.beginPath(); g.arc(x, -r * .3, r, 0, TAU); g.fill();
+      }
+      g.restore();
+      g.save(); g.translate(sway, -st.atk * s * .04);
+      // robe
+      const gr = g.createLinearGradient(0, -s * .7, 0, 0);
+      gr.addColorStop(0, '#4a4430'); gr.addColorStop(1, '#16140c');
+      g.fillStyle = gr;
+      g.beginPath(); g.moveTo(-s * .3, 0); g.quadraticCurveTo(-s * .26, -s * .4, -s * .16, -s * .62);
+      g.lineTo(s * .16, -s * .62); g.quadraticCurveTo(s * .26, -s * .4, s * .3, 0); g.closePath(); g.fill();
+      // stole with crosses
+      g.fillStyle = '#7a1a14'; g.fillRect(-s * .05, -s * .6, s * .1, s * .6);
+      g.strokeStyle = '#d8c070'; g.lineWidth = s * .012;
+      for (const y of [-.45, -.25]) { g.beginPath(); g.moveTo(0, s * (y - .04)); g.lineTo(0, s * (y + .04)); g.moveTo(-s * .025, s * (y - .015)); g.lineTo(s * .025, s * (y - .015)); g.stroke(); }
+      // censer on a chain, swinging
+      const ang = Math.sin(t * 1.8) * .5 + st.atk * .6, cx = s * .26, cy = -s * .52;
+      const ex = cx + Math.sin(ang) * s * .26, ey = cy + Math.cos(ang) * s * .26;
+      g.strokeStyle = '#8a7a50'; g.lineWidth = s * .008; g.beginPath(); g.moveTo(cx, cy); g.lineTo(ex, ey); g.stroke();
+      g.save(); g.shadowColor = '#a0e040'; g.shadowBlur = s * (.08 + st.atk * .1);
+      g.fillStyle = '#b0a060'; g.beginPath(); g.arc(ex, ey, s * .04, 0, TAU); g.fill();
+      g.fillStyle = 'rgba(170,230,70,.8)'; g.beginPath(); g.arc(ex, ey - s * .01, s * .018, 0, TAU); g.fill();
+      g.restore();
+      // hood and beaked mask
+      g.fillStyle = '#2a2618';
+      g.beginPath(); g.ellipse(0, -s * .69, s * .11, s * .1, 0, 0, TAU); g.fill();
+      g.fillStyle = '#c8b890';
+      g.beginPath(); g.moveTo(-s * .05, -s * .71); g.quadraticCurveTo(s * .02, -s * .62, s * .01, -s * .52); g.quadraticCurveTo(s * .05, -s * .64, s * .05, -s * .71); g.closePath(); g.fill();
+      // tall mitre
+      g.fillStyle = '#d8d0b0';
+      g.beginPath(); g.moveTo(-s * .09, -s * .76); g.lineTo(-s * .07, -s * .94); g.lineTo(0, -s * 1.02); g.lineTo(s * .07, -s * .94); g.lineTo(s * .09, -s * .76); g.closePath(); g.fill();
+      g.fillStyle = '#7a1a14'; g.fillRect(-s * .012, -s * .98, s * .024, s * .22);
+      eyes(g, 0, -s * .72, s * .04, s * .014, st.angry ? '#ff4030' : '#c0ff50', s * .08);
+      g.restore();
+    },
+
+    // Act VII [S09]: the Hollow King, an empty suit of black armour with a burning crown and a lightning blade
+    king(g, s, st) {
+      const t = st.t;
+      g.save(); g.translate(0, -st.atk * s * .05 - Math.sin(t * .8) * s * .01);
+      // cape
+      g.fillStyle = '#1a1424';
+      g.beginPath(); g.moveTo(-s * .2, -s * .6);
+      for (let i = 0; i <= 6; i++) g.lineTo(-s * .4 + s * .8 * i / 6, -s * (.02 + .03 * Math.sin(t * 2 + i)));
+      g.lineTo(s * .2, -s * .6); g.closePath(); g.fill();
+      // armour
+      const gr = g.createLinearGradient(0, -s * .66, 0, 0);
+      gr.addColorStop(0, '#4a4a5c'); gr.addColorStop(1, '#0c0c14');
+      g.fillStyle = gr;
+      g.beginPath(); g.moveTo(-s * .22, 0); g.lineTo(-s * .26, -s * .45); g.lineTo(-s * .38, -s * .58); g.lineTo(-s * .14, -s * .66);
+      g.lineTo(s * .14, -s * .66); g.lineTo(s * .38, -s * .58); g.lineTo(s * .26, -s * .45); g.lineTo(s * .22, 0); g.closePath(); g.fill();
+      g.strokeStyle = '#8890b0'; g.lineWidth = s * .01; g.stroke();
+      // the empty chest: a hole with storm light inside
+      const pulse = .6 + .4 * Math.sin(t * 2.4);
+      const cg = g.createRadialGradient(0, -s * .42, 0, 0, -s * .42, s * .09);
+      cg.addColorStop(0, 'rgba(200,220,255,' + (.5 + .4 * pulse) + ')'); cg.addColorStop(1, 'rgba(60,80,160,0)');
+      g.fillStyle = cg; g.beginPath(); g.arc(0, -s * .42, s * .09, 0, TAU); g.fill();
+      // lightning blade
+      g.save(); g.translate(s * .3, -s * .4); g.rotate(-.5 - st.atk * .5);
+      g.fillStyle = '#c8d0e8'; g.fillRect(-s * .012, -s * .5, s * .024, s * .5);
+      g.fillStyle = '#5a5a70'; g.fillRect(-s * .06, -s * .02, s * .12, s * .025);
+      g.strokeStyle = 'rgba(170,200,255,' + (.4 + .6 * pulse) + ')'; g.lineWidth = s * .008; g.beginPath(); g.moveTo(0, -s * .5);
+      for (let i = 1; i <= 5; i++) g.lineTo((i % 2 ? 1 : -1) * s * .03, -s * .5 + s * .1 * i);
+      g.stroke(); g.restore();
+      // helm and crown
+      g.fillStyle = '#2a2a38';
+      g.beginPath(); g.moveTo(-s * .1, -s * .66); g.lineTo(-s * .11, -s * .82); g.lineTo(s * .11, -s * .82); g.lineTo(s * .1, -s * .66); g.closePath(); g.fill();
+      g.fillStyle = '#03030a'; g.fillRect(-s * .075, -s * .76, s * .15, s * .022);
+      g.save(); g.shadowColor = st.angry ? '#ff4040' : '#ffc040'; g.shadowBlur = s * .08;
+      g.fillStyle = '#d8a840';
+      g.beginPath(); g.moveTo(-s * .12, -s * .82);
+      for (let i = 0; i <= 4; i++) { g.lineTo(-s * .12 + s * .06 * i, -s * (i % 2 ? .88 : .95)); }
+      g.lineTo(s * .12, -s * .82); g.closePath(); g.fill();
+      g.restore();
+      eyes(g, 0, -s * .749, s * .04, s * .011, st.angry ? '#ff4040' : '#a8c8ff', s * .08);
       g.restore();
     }
   };

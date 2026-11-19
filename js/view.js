@@ -115,6 +115,9 @@
         }
         g.fillStyle = 'rgba(255,255,255,.035)'; g.fillRect(x, y, cs, 1.5);
         g.fillStyle = 'rgba(0,0,0,.28)'; g.fillRect(x, y + cs - 1.5, cs, 1.5); g.fillRect(x + cs - 1, y, 1, cs);
+        // a faint light edge so every square stands out from the dark, in every land [S09]
+        g.strokeStyle = 'rgba(255,240,220,.09)'; g.lineWidth = 1;
+        g.strokeRect(x + 2.5, y + 2.5, cs - 5, cs - 5);
       }
       // rivets on the frame corners
       g.fillStyle = th.frameHi;

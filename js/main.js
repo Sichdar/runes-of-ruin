@@ -32,19 +32,20 @@
       window.addEventListener('resize', () => this.resize());
       window.addEventListener('orientationchange', () => setTimeout(() => this.resize(), 200));
       document.addEventListener('visibilitychange', () => { if (document.hidden) A().suspend(); else A().resume(); });
-      $('btnPlay').onclick = () => { snd('click'); this.openMap(G.Levels.actOf(G.Save.data.unlocked)); };
-      $('btnTitleMap').onclick = () => { snd('click'); this.openMap(G.Levels.actOf(G.Save.data.unlocked)); };
-      $('btnMapBack').onclick = () => { snd('click'); this.openTitle(); };
-      $('btnMapPlay').onclick = () => { snd('click'); this.startLevel(G.Save.data.unlocked); };
+      // the Cloister is the home screen (S5) [S10]: Play goes there, and its big button starts the next level
+      $('btnPlay').onclick = () => { snd('click'); this.openHome(); };
+      $('btnHomePlay').onclick = () => { snd('click'); this.from = 'home'; this.startLevel(G.Save.data.unlocked); };
+      $('btnHomeMap').onclick = () => { snd('click'); this.openMap(G.Levels.actOf(G.Save.data.unlocked)); };
+      $('btnMapBack').onclick = () => { snd('click'); this.openHome(); };
+      $('btnMapPlay').onclick = () => { snd('click'); this.from = 'map'; this.startLevel(G.Save.data.unlocked); };
       $('btnActPrev').onclick = () => { snd('click'); this.openMap(this.mapAct - 1); };
       $('btnActNext').onclick = () => { snd('click'); this.openMap(this.mapAct + 1); };
       $('btnPause').onclick = () => { snd('click'); this.hammerOff(); this.pause(); };
       $('btnHammer').onclick = () => this.hammerClick();
-      $('btnTitleCloister').onclick = () => { snd('click'); this.openCloister(() => this.openTitle()); };
-      $('mapStones').onclick = () => { snd('click'); const a = this.mapAct; this.openCloister(() => this.openMap(a)); };
+      $('mapStones').onclick = () => { snd('click'); this.openHome(); };
       // Daily trial and quest board (S4) [S08]
       $('btnDaily').onclick = () => { snd('click'); this.startDaily(); };
-      $('btnQuests').onclick = () => { snd('click'); G.Daily.openBoard(() => this.openTitle()); };
+      $('btnQuests').onclick = () => { snd('click'); G.Daily.openBoard(() => this.openHome()); };
       $('btnSkipDay').onclick = () => { snd('click'); G.Daily.skipDay(); this.skipLabel(); };
       $('titleFoot').textContent = 'v' + G.VERSION + (S.unlocked > 1 ? ' · level ' + S.unlocked : '');
       this.resize();
@@ -69,7 +70,7 @@
       this.cv.width = Math.round(this.W * this.dpr); this.cv.height = Math.round(this.H * this.dpr);
       this.bg = null;
       if (this.scene === 'level') this.layoutBoard();
-      if (this.scene === 'map') G.UI.buildMap(this.mapAct, n => this.startLevel(n));
+      if (this.scene === 'map') G.UI.buildMap(this.mapAct, n => { this.from = 'map'; this.startLevel(n); });
       if (this.scene === 'cloister') G.Cloister.sizeArt();
     },
     layoutBoard() {
@@ -109,9 +110,6 @@
       G.Cloister.close();
       G.UI.close();
       G.UI.show('scr-title');
-      $('btnTitleCloister').classList.toggle('badge', G.Cloister.anyAffordable());
-      $('btnDaily').classList.toggle('badge', !G.Daily.wonToday());
-      $('btnQuests').classList.toggle('badge', G.Daily.anyToCollect());
       A().music('title');
     },
     skipLabel() {
@@ -125,20 +123,24 @@
       G.Cloister.close();
       G.UI.close();
       G.UI.show('scr-map');
-      G.UI.buildMap(this.mapAct, n => this.startLevel(n));
+      G.UI.buildMap(this.mapAct, n => { this.from = 'map'; this.startLevel(n); });
       $('mapStones').textContent = G.Cloister.stones();
       $('mapStones').classList.toggle('badge', G.Cloister.anyAffordable());
       A().music(G.Levels.act(this.mapAct).theme);
     },
-    // The Cloister screen [S06]; back = where its back button returns to
-    openCloister(back) {
+    // The home screen: the place being rebuilt, the next level, the win streak (S5, S6) [S10]
+    openHome() {
       this.scene = 'cloister'; this.state = 'idle';
       G.UI.close();
       G.UI.show('scr-cloister');
-      G.Cloister.open(back);
+      G.Cloister.open(() => this.openTitle());
+      $('btnDaily').classList.toggle('badge', !G.Daily.wonToday());
+      $('btnQuests').classList.toggle('badge', G.Daily.anyToCollect());
       this.skipLabel();
       A().music('title');
     },
+    // where a level's Back, Retreat and loss buttons go: the map if it was started there, else home
+    backOut() { if (this.from === 'map' && this.level && !this.level.daily) this.openMap(G.Levels.actOf(this.level.n)); else this.openHome(); },
     startLevel(n) {
       const S = G.Save.data;
       if (n > S.unlocked) return;
@@ -149,7 +151,7 @@
         // coming straight from a won level: show the new act's map behind the story card, not the old board [S09]
         if (this.scene === 'level') this.openMap(actIdx);
         G.UI.modal({
-          title: act.roman.indexOf('Abyss') === 0 ? act.name : 'Act ' + act.roman, sub: act.idx < 5 ? act.name : '', body: act.story, story: true,
+          title: act.roman.indexOf('Abyss') === 0 ? act.name : 'Act ' + act.roman, sub: act.roman.indexOf('Abyss') !== 0 ? act.name : '', body: act.story, story: true,
           buttons: [{ label: 'Onward', fn: () => { S.seenIntro[actIdx] = true; G.Save.save(); this.startLevel(n); } }]
         });
         return;
@@ -169,16 +171,22 @@
       this.level = level;
       this.board = new G.Board(level);
       this.buys = 0;
+      this.moved = false; // any move made: leaving or restarting then counts as a loss for the win streak [S10]
       // Cloister perks: the Gate adds moves, the Forge puts power-ups on the board [S06]
       const CL = G.Cloister;
       const extra = CL.extraMoves();
       this.board.moves += extra;
-      const armed = CL.arm(this.board);
       const perkNotes = [];
+      // the win streak (S6) [S10]: 1, 2, 3 wins in a row = javelin, + fire bomb, + raven; not in daily trials
+      const streak = level.daily ? 0 : CL.arm(this.board, CL.streakKinds());
+      if (streak) perkNotes.push('win streak: ' + CL.streakWords(streak));
+      const armed = CL.arm(this.board);
       if (level.startPows) CL.arm(this.board, level.startPows); // the daily Ambush's free fire bomb [S08]
+      const tower = level.boss && !level.daily ? CL.arm(this.board, CL.towerKinds()) : 0; // the hamlet's Watchtower [S10]
       if (extra) perkNotes.push('+' + extra + ' from the Gate');
       if (armed) perkNotes.push(armed + ' from the Forge');
-      const anyBuilt = CL.AREAS.some(a => CL.stage(a.id) > 0);
+      if (tower) perkNotes.push(tower + ' from the Watchtower');
+      const anyBuilt = CL.AREAS.some(a => CL.done(a.id) > 0);
       G.Cloister.close();
       const B = this.board.boss;
       this.bossFx = B ? { id: B.id, short: B.short, weak: B.weak, max: this.board.goals[B.gi].need, timer: B.timer, angry: false, hurt: 0, atk: 0, t: 0 } : null; // [S07]
@@ -210,7 +218,7 @@
           this.showIntro();
         }
       });
-      buttons.push({ label: 'Back', cls: 'dark', fn: () => level.daily ? this.openTitle() : this.openMap(o.actIdx) });
+      buttons.push({ label: 'Back', cls: 'dark', fn: () => this.backOut() });
       const D = G.Daily, streak = D.streak();
       const dailyNote = !level.daily ? '' : D.wonToday()
         ? '<br><span class="perk-note">Today\'s reward is claimed; replays pay nothing</span>'
@@ -232,13 +240,13 @@
       this.hammerOn = false;
       const b = $('btnHammer');
       b.classList.remove('armed');
-      b.innerHTML = 'Hammer · ' + HAMMER_PRICE + ' <span class="coin"></span>';
-      b.classList.toggle('poor', G.Save.data.gold < HAMMER_PRICE);
+      b.innerHTML = 'Hammer · ' + G.Cloister.hammerPrice(HAMMER_PRICE) + ' <span class="coin"></span>';
+      b.classList.toggle('poor', G.Save.data.gold < G.Cloister.hammerPrice(HAMMER_PRICE));
     },
     hammerClick() {
       if (this.scene !== 'level' || this.state !== 'play' || this.view.busy()) return;
       if (this.hammerOn) { snd('click'); return this.hammerOff(); }
-      if (G.Save.data.gold < HAMMER_PRICE) {
+      if (G.Save.data.gold < G.Cloister.hammerPrice(HAMMER_PRICE)) {
         snd('bad');
         this.view.text('Not enough gold', this.W / 2, this.view.by + this.view.R * this.view.cs * .5, .7);
         return;
@@ -252,10 +260,10 @@
     },
     useHammer(cell) {
       const S = G.Save.data;
-      const ev = S.gold >= HAMMER_PRICE ? this.board.smash(cell.r, cell.c) : null;
+      const ev = S.gold >= G.Cloister.hammerPrice(HAMMER_PRICE) ? this.board.smash(cell.r, cell.c) : null;
       this.hammerOff();
       if (!ev) return;
-      S.gold -= HAMMER_PRICE; G.Save.save();
+      S.gold -= G.Cloister.hammerPrice(HAMMER_PRICE); G.Save.save();
       this.hammerOff();
       snd('crack');
       this.act(ev);
@@ -264,6 +272,7 @@
     // ---------- turns ----------
     act(ev) {
       if (!ev) return;
+      this.moved = true;
       this.idle = 0;
       this.view.showHint(null);
       this.view.sel = null; this.selected = null;
@@ -296,19 +305,22 @@
           S.gold += gold;
           S.stats.wins++;
           G.Save.save();
+          const CL = G.Cloister, streak = CL.streakUp(); // S6 [S10]
           snd('coin');
+          // Continue goes home, where the stones are spent (S5) [S10]
+          const home = this.from !== 'map';
           G.UI.modal({
             title: 'Victory', sub: WIN_LINES[n % WIN_LINES.length],
             html: '+' + gold + ' gold' +
               (stones ? '<br><span class="stones">+' + stones + ' rune stone' + (stones > 1 ? 's' : '') + '</span>' : '') +
-              (left ? '<br><span style="color:#9c8c74;font-size:15px">' + left + ' moves unused</span>' : '') + quests,
+              (left ? '<br><span style="color:#9c8c74;font-size:15px">' + left + ' moves unused</span>' : '') +
+              '<br><span class="perk-note">Win streak ' + streak + ': the next level starts with ' + CL.streakWords(streak) + '</span>' + quests,
             buttons: [
-              { label: 'Next Level', cls: 'big', fn: () => this.startLevel(n + 1) },
-              G.Cloister.anyAffordable()
-                ? { label: 'The Cloister', cls: 'badge', fn: () => this.openCloister(() => this.openMap(G.Levels.actOf(n + 1))) }
-                : null,
-              { label: 'Map', cls: 'dark', fn: () => this.openMap(G.Levels.actOf(n + 1)) }
-            ].filter(Boolean)
+              home ? { label: 'Continue', cls: 'big' + (CL.anyAffordable() ? ' badge' : ''), fn: () => this.openHome() }
+                : { label: 'Next Level', cls: 'big', fn: () => this.startLevel(n + 1) },
+              home ? { label: 'Next Level', cls: 'dark', fn: () => this.startLevel(n + 1) }
+                : { label: 'Home', cls: 'dark' + (CL.anyAffordable() ? ' badge' : ''), fn: () => this.openHome() }
+            ]
           });
         });
       }, 900);
@@ -326,15 +338,14 @@
       const r = G.Daily.reward();
       snd('coin');
       const html = r
-        ? '+' + r.gold + ' gold<br><span class="stones">+' + r.stones + ' rune stone</span>' +
+        ? '+' + r.gold + ' gold<br><span class="stones">+' + r.stones + ' rune stone' + (r.stones > 1 ? 's' : '') + '</span>' +
           '<br><span class="perk-note">Streak: ' + r.streak + ' day' + (r.streak > 1 ? 's' : '') + (r.bonus ? ' · bonus +' + r.bonus + ' gold' : '') + '</span>'
         : '<span class="gold-note">Today\'s reward was already claimed. A new trial comes tomorrow.</span>';
       G.UI.modal({
         title: 'Trial Won', sub: WIN_LINES[S.stats.wins % WIN_LINES.length], html: html + quests,
         buttons: [
-          { label: 'Onward', cls: 'big', fn: () => this.openTitle() },
-          G.Daily.anyToCollect() ? { label: 'Quest Board', cls: 'badge', fn: () => G.Daily.openBoard(() => this.openTitle()) } : null,
-          G.Cloister.anyAffordable() ? { label: 'The Cloister', cls: 'badge', fn: () => this.openCloister(() => this.openTitle()) } : null
+          { label: 'Onward', cls: 'big' + (G.Cloister.anyAffordable() ? ' badge' : ''), fn: () => this.openHome() },
+          G.Daily.anyToCollect() ? { label: 'Quest Board', cls: 'badge', fn: () => G.Daily.openBoard(() => this.openHome()) } : null
         ].filter(Boolean)
       });
     },
@@ -362,6 +373,27 @@
         note.textContent = 'You have ' + S.gold + ' gold.';
         p.insertBefore(note, p.firstChild.nextSibling);
       }
+      if (this.streakAtRisk()) { // the near miss: say what giving up costs [S10]
+        const p = document.querySelector('#panel .btns');
+        const note = document.createElement('div');
+        note.style.cssText = 'font-size:14px;color:#ffb070;font-style:italic';
+        note.textContent = this.streakLossText();
+        p.appendChild(note);
+      }
+    },
+    // the win streak is at stake when a regular level is lost or left after a move (S6) [S10]
+    streakAtRisk() { return this.level && !this.level.daily && this.moved && G.Cloister.streak() > 0; },
+    streakLossText(what) {
+      const CL = G.Cloister, now = CL.streak(), after = CL.perk('forge') >= 2 ? now - 1 : 0;
+      what = what || 'Giving up';
+      return after > 0 ? what + ' lowers your win streak from ' + now + ' to ' + after + '.' : what + ' ends your win streak of ' + now + '.';
+    },
+    // a lost or abandoned level: lower the win streak; returns a line for the panel
+    breakStreak() {
+      if (!this.streakAtRisk()) return '';
+      const before = G.Cloister.streak(), after = G.Cloister.streakDown();
+      this.moved = false;
+      return after ? 'Your win streak dropped from ' + before + ' to ' + after + '.' : 'Your win streak of ' + before + ' is lost.';
     },
     lose() {
       const S = G.Save.data;
@@ -369,10 +401,12 @@
       snd('lose');
       const n = this.level.n, daily = this.level.daily;
       const quests = this.questNote(false);
+      const lost = this.breakStreak();
       G.UI.modal({
-        title: 'You Have Fallen', red: true, sub: LOSE_LINES[S.stats.losses % LOSE_LINES.length], html: quests ? quests.slice(4) : '',
+        title: 'You Have Fallen', red: true, sub: LOSE_LINES[S.stats.losses % LOSE_LINES.length],
+        html: (lost ? '<span class="perk-note off">' + lost + '</span>' : '') + (quests ? (lost ? quests : quests.slice(4)) : ''),
         buttons: [{ label: 'Try Again', cls: 'big', fn: () => daily ? this.startDaily() : this.startLevel(n) },
-          daily ? { label: 'Title', cls: 'dark', fn: () => this.openTitle() } : { label: 'Map', cls: 'dark', fn: () => this.openMap(G.Levels.actOf(n)) }]
+          { label: this.from === 'map' && !daily ? 'Map' : 'Home', cls: 'dark', fn: () => this.backOut() }]
       });
     },
     pause() {
@@ -382,6 +416,7 @@
       const S = G.Save.data;
       G.UI.modal({
         title: 'Paused', sub: (this.level.daily ? 'Daily Trial' : 'Level ' + this.level.n) + ' · ' + this.level.name,
+        html: this.streakAtRisk() ? '<span class="perk-note off">' + this.streakLossText('Restarting or leaving') + '</span>' : '',
         toggles: [
           { label: 'Sound', get: () => S.sound, set: v => { S.sound = v; G.Save.save(); A().setSound(v); } },
           { label: 'Music', get: () => S.music, set: v => { S.music = v; G.Save.save(); A().setMusic(v); } }
@@ -389,8 +424,8 @@
         buttons: [
           { label: 'Resume', cls: 'big', fn: () => { this.state = prev === 'intro' ? 'play' : prev; } },
           // progress so far still counts for quests when leaving early [S08]
-          { label: 'Restart', cls: 'dark', fn: () => { this.questNote(false); this.level.daily ? this.startDaily() : this.startLevel(this.level.n); } },
-          { label: this.level.daily ? 'Retreat' : 'Retreat to Map', cls: 'dark', fn: () => { this.questNote(false); this.level.daily ? this.openTitle() : this.openMap(G.Levels.actOf(this.level.n)); } }
+          { label: 'Restart', cls: 'dark', fn: () => { this.questNote(false); this.breakStreak(); this.level.daily ? this.startDaily() : this.startLevel(this.level.n); } },
+          { label: 'Retreat', cls: 'dark', fn: () => { this.questNote(false); this.breakStreak(); this.backOut(); } }
         ]
       });
     },
@@ -483,6 +518,14 @@
         g.drawImage(this.titleCl, (W - cw) / 2, H * .36, cw, ch);
       }
       if (this.scene === 'level') {
+        // gold counter at the bottom left follows every buy and win [S09]
+        const gold = G.Save.data.gold;
+        if (gold !== this.shownGold) {
+          const el = $('hudGold');
+          el.textContent = gold;
+          if (this.shownGold !== undefined) { el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
+          this.shownGold = gold;
+        }
         g.fillStyle = 'rgba(0,0,0,.28)'; g.fillRect(0, 0, W, H);
         this.view.update(dt);
         this.view.draw(g);

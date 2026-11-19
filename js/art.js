@@ -1057,6 +1057,102 @@ window.G = window.G || {};
     ctx.stroke();
     fogBand(ctx, W, H * 0.93, H * 0.06, '#6a8ab8', 0.16);
   };
+  // Act VI [S09]: a plague city at night, gabled roofs, a cathedral and a bell tower in sick green fog
+  function cityRow(ctx, R, W, base, hMin, hMax, col, light) {
+    let x = -10;
+    while (x < W + 10) {
+      const w = rr(R, W * 0.05, W * 0.1), h = rr(R, hMin, hMax), roof = w * rr(R, 0.45, 0.8);
+      ctx.fillStyle = col;
+      ctx.fillRect(x, base - h, w + 1, h + 2);
+      poly(ctx, [[x - 1, base - h], [x + w / 2, base - h - roof], [x + w + 2, base - h]]); ctx.fill();
+      if (light && R() < 0.5) {
+        ctx.fillStyle = 'rgba(200,220,90,' + rr(R, 0.35, 0.7) + ')';
+        ctx.fillRect(x + w * rr(R, 0.2, 0.6), base - h * rr(R, 0.4, 0.8), w * 0.14, h * 0.12);
+      }
+      x += w;
+    }
+  }
+  BG.city = function (ctx, W, H, R) {
+    sky(ctx, W, H, [[0, '#030402'], [0.42, '#0e1208'], [0.7, '#2a2e12'], [1, '#0c0e06']]);
+    stars(ctx, R, W, H, 45, 0.4, 0.45, '#e8f0c0');
+    const m = Math.min(W, H);
+    moon(ctx, R, W * 0.25, H * 0.13, m * 0.08, '#c8d890', '#b8e040', 0.22);
+    cloudStreaks(ctx, R, W, H * 0.16, H * 0.3, '#080a04', 0.7, 7);
+    cityRow(ctx, R, W, H * 0.64, H * 0.04, H * 0.09, '#23260f', false);
+    // cathedral with two spires and a rose window
+    const cx = W * 0.62, cb = H * 0.64, cw = W * 0.26, ch = H * 0.13;
+    ctx.fillStyle = '#1c1f0c';
+    ctx.fillRect(cx - cw / 2, cb - ch, cw, ch + 2);
+    poly(ctx, [[cx - cw / 2, cb - ch], [cx, cb - ch - cw * 0.35], [cx + cw / 2, cb - ch]]); ctx.fill();
+    for (const sx of [-1, 1]) {
+      const tx = cx + sx * cw * 0.42, tw = cw * 0.16;
+      ctx.fillRect(tx - tw / 2, cb - ch * 1.7, tw, ch * 1.7);
+      poly(ctx, [[tx - tw / 2 - 2, cb - ch * 1.7], [tx, cb - ch * 2.6], [tx + tw / 2 + 2, cb - ch * 1.7]]); ctx.fill();
+    }
+    glow(ctx, cx, cb - ch * 0.62, cw * 0.18, '#c8e040', 0.4);
+    ctx.fillStyle = 'rgba(210,235,110,0.75)'; ctx.beginPath(); ctx.arc(cx, cb - ch * 0.62, cw * 0.07, 0, Math.PI * 2); ctx.fill();
+    // bell tower on the left
+    const bx = W * 0.16, bw = W * 0.07;
+    ctx.fillStyle = '#1c1f0c'; ctx.fillRect(bx - bw / 2, cb - H * 0.2, bw, H * 0.2 + 2);
+    poly(ctx, [[bx - bw * 0.7, cb - H * 0.2], [bx, cb - H * 0.27], [bx + bw * 0.7, cb - H * 0.2]]); ctx.fill();
+    ctx.fillStyle = 'rgba(200,220,90,0.5)'; ctx.fillRect(bx - bw * 0.22, cb - H * 0.18, bw * 0.44, H * 0.035);
+    fogBand(ctx, W, H * 0.64, H * 0.06, '#8aa030', 0.22);
+    cityRow(ctx, R, W, H * 0.78, H * 0.05, H * 0.11, '#11130a', true);
+    // gallows
+    ctx.fillStyle = '#11130a';
+    const gx = W * 0.82, gy = H * 0.78;
+    ctx.fillRect(gx, gy - H * 0.16, W * 0.012, H * 0.16); ctx.fillRect(gx - W * 0.08, gy - H * 0.16, W * 0.09, W * 0.012);
+    ctx.strokeStyle = '#11130a'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(gx - W * 0.07, gy - H * 0.16); ctx.lineTo(gx - W * 0.07, gy - H * 0.11); ctx.stroke();
+    fogBand(ctx, W, H * 0.8, H * 0.06, '#7a9028', 0.2);
+    ctx.fillStyle = linGrad(ctx, 0, H * 0.86, 0, H, [[0, '#070804'], [1, '#020201']]); ctx.fillRect(0, H * 0.86, W, H * 0.14);
+    graves(ctx, R, () => H * 0.87, W * 0.05, W * 0.45, 5, H * 0.03, '#070804');
+    fogBand(ctx, W, H * 0.93, H * 0.06, '#5a6a20', 0.2);
+  };
+  // Act VII [S09]: a citadel on floating rocks inside a violet storm, with lightning
+  function rock(ctx, R, x, y, w, h, col, edge) {
+    const pts = [[x - w / 2, y]];
+    for (let i = 1; i < 6; i++) pts.push([x - w / 2 + w * i / 6 + rr(R, -w * 0.04, w * 0.04), y + h * Math.sin(i / 6 * Math.PI) * rr(R, 0.6, 1)]);
+    pts.push([x + w / 2, y]);
+    poly(ctx, pts); ctx.fillStyle = col; ctx.fill();
+    ctx.beginPath(); ctx.moveTo(x - w / 2, y); ctx.lineTo(x + w / 2, y); ctx.lineWidth = 1.2; ctx.strokeStyle = edge; ctx.stroke();
+  }
+  function bolt(ctx, R, x, y0, y1, a) {
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    ctx.beginPath(); ctx.moveTo(x, y0);
+    let y = y0; while (y < y1) { x += rr(R, -14, 14); y += rr(R, 10, 24); ctx.lineTo(x, y); }
+    ctx.lineWidth = 6; ctx.strokeStyle = 'rgba(140,150,255,' + a * 0.15 + ')'; ctx.stroke();
+    ctx.lineWidth = 1.6; ctx.strokeStyle = 'rgba(230,235,255,' + a + ')'; ctx.stroke();
+    ctx.restore();
+  }
+  BG.storm = function (ctx, W, H, R) {
+    sky(ctx, W, H, [[0, '#040309'], [0.4, '#141226'], [0.72, '#2a2840'], [1, '#0c0b16']]);
+    const M = Math.max(W, H);
+    glow(ctx, W * 0.5, H * 0.3, M * 0.4, '#6a70c0', 0.18);
+    cloudStreaks(ctx, R, W, H * 0.05, H * 0.35, '#0a0914', 0.75, 12);
+    bolt(ctx, R, W * 0.2, 0, H * 0.4, 0.7);
+    bolt(ctx, R, W * 0.83, H * 0.05, H * 0.32, 0.5);
+    // the floating citadel
+    const cx = W * 0.55, cy = H * 0.5, cw = W * 0.42;
+    rock(ctx, R, cx, cy, cw, H * 0.16, '#16152a', 'rgba(170,180,255,0.4)');
+    ctx.fillStyle = '#16152a';
+    ctx.fillRect(cx - cw * 0.3, cy - H * 0.07, cw * 0.6, H * 0.07 + 1);
+    for (const [f, h] of [[-0.32, 0.13], [-0.12, 0.2], [0.1, 0.16], [0.3, 0.11]]) {
+      const tx = cx + cw * f, tw = cw * 0.09;
+      ctx.fillRect(tx - tw / 2, cy - H * h, tw, H * h);
+      poly(ctx, [[tx - tw * 0.7, cy - H * h], [tx, cy - H * (h + 0.05)], [tx + tw * 0.7, cy - H * h]]); ctx.fill();
+    }
+    glow(ctx, cx - cw * 0.12, cy - H * 0.16, cw * 0.08, '#a0b8ff', 0.4);
+    ctx.fillStyle = 'rgba(200,215,255,0.8)'; ctx.fillRect(cx - cw * 0.125, cy - H * 0.17, cw * 0.025, H * 0.03);
+    // smaller rocks drifting, and a broken stair rising to the citadel
+    rock(ctx, R, W * 0.14, H * 0.6, W * 0.16, H * 0.07, '#100f1e', 'rgba(170,180,255,0.3)');
+    rock(ctx, R, W * 0.9, H * 0.42, W * 0.12, H * 0.05, '#100f1e', 'rgba(170,180,255,0.3)');
+    ctx.fillStyle = '#0d0c18';
+    for (let i = 0; i < 9; i++) { const x = W * (0.08 + i * 0.045), y = H * (0.86 - i * 0.035); ctx.fillRect(x, y, W * 0.05, H * 0.018); }
+    fogBand(ctx, W, H * 0.72, H * 0.06, '#5a5a9a', 0.18);
+    const y3 = ridge(ctx, R, W, H, H * 0.88, H * 0.035, '#05050a', 3);
+    spikes(ctx, R, y3, W, 6, H * 0.03, H * 0.08, '#05050a');
+    fogBand(ctx, W, H * 0.93, H * 0.06, '#4a4a80', 0.18);
+  };
   BG.abyss = function (ctx, W, H, R) {
     sky(ctx, W, H, [[0, '#010003'], [0.5, '#06020c'], [1, '#0e0618']]);
     const M = Math.max(W, H);
@@ -1232,6 +1328,8 @@ window.G = window.G || {};
     jungle: { n: 40, kind: 'glow', cols: ['#a0ff6a', '#6affb0'], size: [2.5, 5.5], vx: [-5, 5], vy: [-14, -4], sway: 12, a: [0.35, 0.8], pulse: 1 },
     hell: { n: 70, kind: 'glow', cols: ['#ff7a20', '#ffaa30', '#ff4a10'], size: [1.6, 3.8], vx: [-10, 10], vy: [-80, -30], sway: 18, a: [0.5, 1], fadeTop: 1, flicker: 1 },
     frost: { n: 90, kind: 'dot', cols: ['#e8f0ff', '#c8dcff'], size: [0.8, 2.6], vx: [-6, 6], vy: [18, 55], sway: 14, a: [0.4, 0.9], sizeSpeed: 1 },
+    city: { n: 45, kind: 'glow', cols: ['#b8e040', '#d0f070', '#90b030'], size: [1.5, 3.5], vx: [-6, 6], vy: [-12, -3], sway: 14, a: [0.25, 0.6], pulse: 1 }, // plague motes [S09]
+    storm: { n: 110, kind: 'dot', cols: ['#a8b0d8', '#c8d0f0'], size: [0.6, 1.6], vx: [-40, -15], vy: [140, 220], sway: 4, a: [0.25, 0.55] }, // driving rain [S09]
     abyss: { n: 55, kind: 'glow', cols: ['#b060ff', '#b060ff', '#d080ff', '#60ffa0'], size: [1.8, 4], vx: [-6, 6], vy: [-25, -8], sway: 10, a: [0.35, 0.85], fadeTop: 1, pulse: 1 },
     title: { n: 60, kind: 'glow', cols: ['#ff5020', '#ff8a30', '#ff3010'], size: [1.6, 3.6], vx: [-6, 14], vy: [-55, -20], sway: 16, a: [0.45, 1], fadeTop: 1, flicker: 1, fog: '#8a1a22' }
   };

@@ -146,6 +146,10 @@ h1.title span { font-size: .45em; letter-spacing: .3em; display: block; margin: 
 .hammer:active { transform: translateX(-50%) translateY(1px) scale(.98); }
 .hammer.armed { border-color: #ffd870; box-shadow: 0 0 0 2px #1a0806, 0 0 18px 4px rgba(255,200,90,.6); color: #ffe8a8; animation: none; }
 .hammer.poor { opacity: .55; }
+/* gold during a level [S09] */
+.hud-gold { position: fixed; left: 12px; bottom: calc(var(--sab) + 16px); pointer-events: none; min-width: 0; text-align: left;
+  padding: 5px 11px 5px 9px; border-radius: 16px; background: rgba(18,12,10,.85); border: 2px solid var(--gold-dk); box-shadow: 0 3px 8px rgba(0,0,0,.6); }
+.hud-gold.bump { animation: bump .3s; }
 .coin { display: inline-block; width: 11px; height: 11px; border-radius: 50%; vertical-align: -1px; margin-left: 2px;
   background: radial-gradient(circle at 35% 35%, #fff0a0, #d0a030 55%, #6a4808); box-shadow: 0 0 6px rgba(255,200,80,.6); }
 .panel .btn.helper { min-width: 0; font-size: 12px; padding: 10px 14px; letter-spacing: .06em; }
@@ -171,6 +175,25 @@ h1.title span { font-size: .45em; letter-spacing: .3em; display: block; margin: 
 .cl-foot { width: 100%; max-width: 520px; display: flex; justify-content: center; gap: 10px; padding: 6px 12px calc(var(--sab) + 10px); }
 .cl-foot .btn { min-width: 0; font-size: 13px; padding: 10px 14px; }
 #btnSkipDay { font-size: 11px; letter-spacing: .05em; opacity: .8; }
+/* home screen: places, play button, win streak, job progress [S10] */
+.cl-artwrap { position: relative; flex: none; }
+.cl-place { position: absolute; top: 50%; transform: translateY(-50%); width: 34px; height: 34px; border-radius: 50%; padding: 0;
+  background: rgba(10,6,4,.72); border: 1.5px solid var(--gold-dk); color: var(--gold); font-size: 15px; }
+.cl-place.prev { left: 8px; } .cl-place.next { right: 8px; }
+.cl-place.hidden { display: none; }
+.cl-play { flex: none; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 8px 12px 0; }
+.cl-play .btn.big { padding: 11px 40px; }
+.cl-play .title-row .btn { width: 108px; padding: 9px 4px; font-size: 12px; letter-spacing: .06em; }
+.cl-streak { font-size: 14px; color: var(--dim); text-align: center; line-height: 1.3; }
+.cl-streak b { color: #ffc070; font-weight: 400; }
+.cl-streak span { display: block; font-style: italic; }
+.cl-streak .fl { display: inline-block; width: 10px; height: 14px; border-radius: 50% 50% 45% 45%; background: #2e2420; margin: 0 2px; vertical-align: -2px; }
+.cl-streak .fl.on { background: radial-gradient(circle at 50% 70%, #fff0a0, #ff8a20 55%, #a02a08); box-shadow: 0 0 6px #ff8020; }
+.cl-note.good { color: #b8e0a0; font-style: normal; }
+.cl-prog { display: flex; align-items: center; gap: 8px; margin-top: 6px; font-size: 13px; color: var(--dim); }
+.cl-prog .bar { flex: 1; height: 6px; border-radius: 3px; background: #10121c; border: 1px solid #3a4260; overflow: hidden; }
+.cl-prog .bar i { display: block; height: 100%; background: linear-gradient(90deg, #6a7ab0, #c8d4ff); }
+.cl-list .cl-foot { padding: 4px 0 calc(var(--sab) + 8px); }
 /* daily trial and quest board [S08] */
 .title-row { display: flex; gap: 10px; }
 .title-row .btn { min-width: 0; width: 140px; padding: 12px 8px; font-size: 14px; letter-spacing: .08em; }
@@ -200,9 +223,6 @@ h1.title span { font-size: .45em; letter-spacing: .3em; display: block; margin: 
   </div>
   <div class="title-btns">
     <button class="btn big" id="btnPlay">Play</button>
-    <div class="title-row"><button class="btn" id="btnDaily">Daily Trial</button><button class="btn dark" id="btnQuests">Quests</button></div>
-    <button class="btn dark" id="btnTitleMap">Map of the Acts</button>
-    <button class="btn dark" id="btnTitleCloister">The Cloister</button>
   </div>
   <div class="title-foot" id="titleFoot"></div>
 </div>
@@ -223,14 +243,24 @@ h1.title span { font-size: .45em; letter-spacing: .3em; display: block; margin: 
 
 <div id="scr-cloister" class="screen hidden">
   <div class="map-head">
-    <button class="icon-btn" id="btnClBack" aria-label="Back">&#10094;</button>
-    <div class="map-title"><div class="act">THE CLOISTER</div><div class="nm">Raise the huntress's sanctuary</div></div>
-    <div class="stones" id="clStones">0</div>
+    <button class="icon-btn" id="btnClBack" aria-label="Title">&#10094;</button>
+    <div class="map-title"><div class="act" id="clPlace">THE CLOISTER</div><div class="nm" id="clSub">Raise the huntress's sanctuary</div></div>
+    <div class="map-purse"><div class="gold" id="clGold">0</div><div class="stones" id="clStones">0</div></div>
   </div>
-  <canvas id="cloisterArt" class="cl-art"></canvas>
+  <div class="cl-artwrap">
+    <canvas id="cloisterArt" class="cl-art"></canvas>
+    <button class="cl-place prev hidden" id="btnPlacePrev" aria-label="Previous place">&#10094;</button>
+    <button class="cl-place next hidden" id="btnPlaceNext" aria-label="Next place">&#10095;</button>
+  </div>
+  <div class="cl-play">
+    <div class="cl-streak" id="clStreak"></div>
+    <button class="btn big" id="btnHomePlay">Level 1</button>
+    <div class="title-row"><button class="btn dark" id="btnHomeMap">Map</button><button class="btn" id="btnDaily">Daily Trial</button><button class="btn dark" id="btnQuests">Quests</button></div>
+  </div>
   <div class="cl-note" id="clNote"></div>
-  <div class="cl-list" id="cloisterList"></div>
-  <div class="cl-foot"><button class="btn dark" id="btnPerks">Perks: On</button><button class="btn dark" id="btnSkipDay">Test: skip a day</button></div>
+  <div class="cl-list" id="cloisterList">
+    <div class="cl-foot" id="clFoot"><button class="btn dark" id="btnPerks">Perks: On</button><button class="btn dark" id="btnSkipDay">Test: skip a day</button></div>
+  </div>
 </div>
 
 <div id="hud" class="hidden">
@@ -243,6 +273,7 @@ h1.title span { font-size: .45em; letter-spacing: .3em; display: block; margin: 
     <div class="moves" id="movesBox"><div class="moves-n" id="moves">0</div><div class="moves-l">moves</div></div>
   </div>
   <button class="btn dark hammer" id="btnHammer">Hammer</button>
+  <div class="gold hud-gold" id="hudGold">0</div>
 
 </div>
 

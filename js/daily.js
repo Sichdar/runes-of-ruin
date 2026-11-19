@@ -107,9 +107,10 @@
       const streak = d.lastWin === day - 1 ? d.streak + 1 : 1;
       d.lastWin = day; d.streak = streak;
       const bonus = streak === 3 ? 100 : streak % 7 === 0 ? 300 : 0;
-      S.gold += DAY_GOLD + bonus;
-      G.Cloister.addBonus(DAY_STONES); // saves
-      return { gold: DAY_GOLD, bonus, stones: DAY_STONES, streak };
+      const ex = G.Cloister.dailyExtra(); // the hamlet's Tavern [S10]
+      S.gold += DAY_GOLD + bonus + ex.gold;
+      G.Cloister.addBonus(DAY_STONES + ex.stones); // saves
+      return { gold: DAY_GOLD + ex.gold, bonus, stones: DAY_STONES + ex.stones, streak };
     },
 
     // ---------- quest board ----------

@@ -386,6 +386,22 @@ window.G = window.G || {};
       pad: { type: 'triangle', oct: 24, deg: [0, 2, 4, 6], n: 3, lp: 2200, formant: false, vol: 0.04, every: [8, 14], dur: [8, 12] },
       bell: { kind: 'glass', oct: 36, vol: 0.055, every: [4, 9], deg: [0, 2, 3, 4, 6] }
     },
+    // Act VI plague city and Act VII storm citadel [S09]
+    city: {
+      root: 35, scale: 'phr', dvol: 0.1, cut: 360, lfo: 0.04,
+      drone: [{ s: 0, type: 'sawtooth', v: 0.45 }, { s: 5, type: 'triangle', v: 0.35 }, { s: -12, type: 'sine', v: 0.6 }],
+      noise: { type: 'bandpass', f: 500, q: 0.8, vol: 0.07, lfo: 0.04, depth: 200 },
+      pad: { type: 'sawtooth', oct: 24, deg: [0, 1, 3, 5], n: 3, lp: 750, formant: true, vol: 0.035, every: [10, 16], dur: [9, 13] },
+      bell: { kind: 'toll', oct: 24, vol: 0.075, every: [6, 12], deg: [0, 4] }
+    },
+    storm: {
+      root: 30, scale: 'aeo', dvol: 0.11, cut: 420, lfo: 0.09,
+      drone: [{ s: 0, type: 'sawtooth', v: 0.5 }, { s: 7, type: 'sawtooth', v: 0.3 }, { s: -12, type: 'sine', v: 0.7 }],
+      noise: { type: 'lowpass', f: 900, q: 0.6, vol: 0.12, lfo: 0.12, depth: 500 },
+      pad: { type: 'sawtooth', oct: 24, deg: [0, 2, 3, 6], n: 3, lp: 1000, formant: true, vol: 0.035, every: [8, 14], dur: [8, 12] },
+      bell: { kind: 'bell', oct: 36, vol: 0.05, every: [7, 14], deg: [0, 3, 4] },
+      extra: ['drum']
+    },
     abyss: {
       root: 28, scale: 'hell', dvol: 0.13, cut: 220, lfo: 0.03,
       drone: [{ s: 0, type: 'sawtooth', v: 0.45 }, { s: 1, type: 'sawtooth', v: 0.3 }, { s: 6, type: 'sine', v: 0.5 }],
