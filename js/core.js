@@ -2,7 +2,7 @@
 window.G = window.G || {};
 (function (G) {
   'use strict';
-  G.VERSION = '0.7.0';
+  G.VERSION = '0.8.0'; // chests, Cursed and rescue levels, the cast [S12]
 
   // Timing constants shared by the game logic and the renderer (milliseconds / cells per second)
   G.T = {
@@ -63,7 +63,8 @@ window.G = window.G || {};
     camp: { built: {} },
     quests: { active: [], done: [] },
     daily: { shift: 0, lastWin: -9, streak: 0 }, // daily trial (daily.js) [S08]
-    winStreak: 0        // wins in a row, 0..3 (S6, cloister.js) [S10]
+    winStreak: 0,       // wins in a row, 0..3 (S6, cloister.js) [S10]
+    items: { bomb: 0, hammer: 0 } // free helpers from chests (S9, cloister.js) [S12]
   };
   G.Save = {
     data: JSON.parse(JSON.stringify(DEFAULTS)),

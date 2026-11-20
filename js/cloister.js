@@ -12,6 +12,17 @@
   const snd = (n, o) => { if (G.Audio && G.Audio.play) G.Audio.play(n, o); };
   const J = (n, p) => ({ n, p }); // a job: its name, and the prop it adds [type, x, y] (none = a building step)
   const AREA_GIFT = 100;          // gold for finishing an area
+  // an iron-bound chest whose lid flies open (CSS in index.html, .chest) [S12]
+  const CHEST_SVG = '<svg class="chest" viewBox="0 0 120 100" aria-hidden="true">' +
+    '<defs><radialGradient id="chGlow"><stop offset="0" stop-color="#ffe9a0" stop-opacity=".95"/><stop offset="1" stop-color="#ff9a30" stop-opacity="0"/></radialGradient>' +
+    '<linearGradient id="chWood" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7a4a26"/><stop offset="1" stop-color="#3a200e"/></linearGradient></defs>' +
+    '<ellipse class="ch-glow" cx="60" cy="46" rx="58" ry="40" fill="url(#chGlow)"/>' +
+    '<g class="ch-body"><rect x="18" y="50" width="84" height="40" rx="3" fill="url(#chWood)" stroke="#1a0c04" stroke-width="2"/>' +
+    '<rect x="18" y="58" width="84" height="5" fill="#5a5a62"/><rect x="18" y="80" width="84" height="5" fill="#5a5a62"/>' +
+    '<rect x="30" y="50" width="6" height="40" fill="#6a6a74"/><rect x="84" y="50" width="6" height="40" fill="#6a6a74"/>' +
+    '<rect x="53" y="52" width="14" height="16" rx="2" fill="#c8a040" stroke="#5a3a10" stroke-width="1.5"/><circle cx="60" cy="59" r="2.4" fill="#2a1606"/></g>' +
+    '<g class="ch-lid"><path d="M18 50 V36 Q60 14 102 36 V50 Z" fill="url(#chWood)" stroke="#1a0c04" stroke-width="2"/>' +
+    '<path d="M30 50 V31 M90 50 V31" stroke="#6a6a74" stroke-width="6"/><path d="M18 44 Q60 24 102 44" stroke="#5a5a62" stroke-width="4" fill="none"/></g></svg>';
 
   const PLACES = [
     { name: 'The Cloister', sub: 'Raise the huntress\'s sanctuary',
@@ -113,9 +124,9 @@
     AREAS, PLACES,
     stage, done, complete,
     // stones a first win of level n gives
-    stonesFor(level) { return level && level.boss ? 3 : 1; },
-    // camp.bonus = stones won in daily trials, the only stones that are stored [S08]
-    earned() { const n = Math.max(0, G.Save.data.unlocked - 1); return n + 2 * Math.floor(n / 15) + (camp().bonus || 0); },
+    stonesFor(level) { return level && level.boss ? 3 : level && level.cursed ? 2 : 1; }, // Cursed levels pay 2 (S9) [S12]
+    // camp.bonus = stones won in daily trials and chests, the only stones that are stored [S08, S12]
+    earned() { const n = Math.max(0, G.Save.data.unlocked - 1); return n + 2 * Math.floor(n / 15) + G.Levels.cursedUpTo(n) + (camp().bonus || 0); },
     addBonus(k) { camp().bonus = (camp().bonus || 0) + k; G.Save.save(); },
     spent() { let s = 0; for (const a of AREAS) s += done(a.id); return s; },
     stones() { return this.earned() - this.spent(); },
@@ -166,6 +177,54 @@
     // a lost or abandoned level; the Forge (stage 2+) only lowers it by one. Returns the new streak.
     streakDown() { const n = this.perk('forge') >= 2 ? Math.max(0, this.streak() - 1) : 0; G.Save.data.winStreak = n; G.Save.save(); return n; },
 
+    // ---------- chests (S9) [S12]: one every 10 levels won, one every 10 jobs done ----------
+    // camp.chestL / camp.chestB = chests of each kind already opened. Old saves start counting from now.
+    chestInit() {
+      const c = camp();
+      if (c.chestL === undefined) { c.chestL = Math.floor((G.Save.data.unlocked - 1) / 10); c.chestB = Math.floor(this.spent() / 10); G.Save.save(); }
+      return c;
+    },
+    chestState() {
+      const c = this.chestInit(), lv = Math.max(0, G.Save.data.unlocked - 1), sp = this.spent();
+      return { L: { have: lv % 10, ready: Math.floor(lv / 10) - c.chestL }, B: { have: sp % 10, ready: Math.floor(sp / 10) - c.chestB } };
+    },
+    nextChest() { const s = this.chestState(); return s.L.ready > 0 ? 'L' : s.B.ready > 0 ? 'B' : null; },
+    // free helpers won from chests, used instead of gold: data.items = { bomb, hammer }
+    items() { const S = G.Save.data; if (!S.items || typeof S.items !== 'object') S.items = { bomb: 0, hammer: 0 }; return S.items; },
+    useItem(k) { const it = this.items(); if (!(it[k] > 0)) return false; it[k]--; G.Save.save(); return true; },
+    itemWords(k, n) { return n + ' ' + (k === 'bomb' ? 'fire bomb' : k === 'hammer' ? 'free hammer' : 'rune stone') + (n > 1 ? 's' : ''); },
+    // open one chest: gold, plus 2 (level chest) or 1 (builder's chest) helpers or stones
+    openChest(kind) {
+      const c = this.chestInit(), S = G.Save.data, it = this.items();
+      const big = kind === 'L';
+      if (big) c.chestL++; else c.chestB++;
+      const gold = 10 * Math.round((big ? 80 + Math.random() * 70 : 50 + Math.random() * 50) / 10);
+      const got = { bomb: 0, hammer: 0, stone: 0 };
+      for (let i = 0; i < (big ? 2 : 1); i++) { const r = Math.random(); got[r < .35 ? 'bomb' : r < .7 ? 'hammer' : 'stone']++; }
+      it.bomb += got.bomb; it.hammer += got.hammer;
+      if (got.stone) c.bonus = (c.bonus || 0) + got.stone;
+      S.gold += gold;
+      G.Save.save();
+      return { kind, gold, got };
+    },
+    // show the next ready chest, then the one after it, if any
+    checkChests(after) {
+      const k = this.nextChest();
+      if (!k || G.UI.modalOpen()) { if (after) after(); return false; }
+      const r = this.openChest(k);
+      const lines = ['+' + r.gold + ' gold'];
+      for (const x of ['bomb', 'hammer', 'stone']) if (r.got[x]) lines.push(this.itemWords(x, r.got[x]));
+      snd('forge'); setTimeout(() => snd('coin'), 700);
+      G.UI.modal({
+        title: k === 'L' ? 'Level Chest' : 'Builder\'s Chest', sub: k === 'L' ? '10 more levels won' : '10 more jobs done',
+        html: CHEST_SVG + '<div class="chest-loot">' + lines.map(s => '<div>' + s + '</div>').join('') + '</div>' +
+          (r.got.bomb || r.got.hammer ? '<span class="perk-note">Free helpers are used before gold</span>' : ''),
+        buttons: [{ label: 'Take it', cls: 'big', fn: () => { this.refresh(); this.checkChests(after); } }]
+      });
+      if (G.Cast) G.Cast.event('chest');
+      return true;
+    },
+
     // Put power-ups on plain tiles of a new board (before the view copies it).
     arm(board, kindsIn) {
       const kinds = kindsIn || this.forgeKinds(); // kindsIn: the fire bomb bought with gold, streak or tower helpers
@@ -197,6 +256,9 @@
       this.refresh();
       this.sizeArt();
       $('cloisterList').scrollTop = 0;
+      // a chest that filled up while away opens on arrival [S12]
+      clearTimeout(this.chestTimer);
+      this.chestTimer = setTimeout(() => { if (this.raf) this.checkChests(); }, 450);
       if (!this.raf) {
         let last = performance.now();
         const loop = now => {
@@ -230,7 +292,8 @@
       $('btnPerks').textContent = 'Perks: ' + (this.perksOn() ? 'On' : 'Off');
       $('btnPlacePrev').classList.toggle('hidden', pi <= 0);
       $('btnPlaceNext').classList.toggle('hidden', !this.placeOpen(pi + 1) || pi >= PLACES.length - 1);
-      $('btnHomePlay').textContent = 'Level ' + S.unlocked;
+      const LV = G.Levels, nx = S.unlocked; // the next level says if it is a rescue or Cursed [S12]
+      $('btnHomePlay').innerHTML = 'Level ' + nx + (LV.isRescue(nx) ? '<span class="tag rescue">Rescue Kaela</span>' : LV.isCursed(nx) ? '<span class="tag cursed">Cursed · 2 stones</span>' : '');
       // the win streak: three flames and what the next level starts with
       const n = this.streak();
       let fl = '';
@@ -251,6 +314,16 @@
       const list = $('cloisterList');
       [...list.querySelectorAll('.cl-card')].forEach(c => c.remove());
       const foot = $('clFoot');
+      // chests and free helpers first (S9) [S12]
+      const cs = this.chestState(), it = this.items();
+      const chestRow = (label, x) => '<div class="ch-row"><i class="ch-ico"></i><span class="ch-name">' + label + '</span>' +
+        '<div class="bar"><i style="width:' + (x.ready > 0 ? 100 : x.have * 10) + '%"></i></div><span>' + (x.ready > 0 ? 'ready' : x.have + '/10') + '</span></div>';
+      const pack = ['bomb', 'hammer'].filter(k => it[k] > 0).map(k => this.itemWords(k, it[k]));
+      const cc = document.createElement('div');
+      cc.className = 'cl-card chests';
+      cc.innerHTML = chestRow('Level chest', cs.L) + chestRow('Builder\'s chest', cs.B) +
+        '<div class="cl-next">' + (pack.length ? 'In your pack: ' + pack.join(' · ') : 'A chest every 10 levels won and every 10 jobs done') + '</div>';
+      list.insertBefore(cc, list.firstChild);
       for (const a of AREAS) {
         if (a.place !== pi) continue;
         const d = done(a.id), max = a.jobs.length, s = stage(a.id), open = this.isOpen(a);
@@ -292,6 +365,9 @@
       this.say(msg, true);
       this.refresh();
       if (this.onChange) this.onChange();
+      if (G.Cast) G.Cast.event(r.areaDone ? 'areaDone' : r.stageUp ? 'stageUp' : 'job', a.id); // S8 [S12]
+      clearTimeout(this.chestTimer);
+      if (!r.placeDone && this.nextChest()) this.chestTimer = setTimeout(() => { if (this.raf) this.checkChests(); }, 800); // [S12]
       if (r.placeDone) {
         const P = PLACES[a.place], next = a.place + 1 < PLACES.length;
         setTimeout(() => {
@@ -301,6 +377,7 @@
             buttons: [{ label: next ? 'To ' + PLACES[a.place + 1].name : 'Splendid', cls: 'big', fn: () => {
               if (next) { this.view = a.place + 1; this.say(''); }
               this.refresh();
+              this.checkChests(); // [S12]
             } }]
           });
         }, 900);

@@ -48,6 +48,7 @@
       $('btnQuests').onclick = () => { snd('click'); G.Daily.openBoard(() => this.openHome()); };
       $('btnSkipDay').onclick = () => { snd('click'); G.Daily.skipDay(); this.skipLabel(); };
       $('titleFoot').textContent = 'v' + G.VERSION + (S.unlocked > 1 ? ' · level ' + S.unlocked : '');
+      G.Cloister.chestInit(); // old saves start their chest count from here [S12]
       this.resize();
       this.openTitle();
       let last = performance.now();
@@ -77,7 +78,7 @@
       let top = G.UI.hudBottom() + 10;
       // boss levels: a strip above the board for the boss, its health bar and countdown [S07]
       this.bossBox = null;
-      if (this.bossFx) {
+      if (this.bossFx || this.rescueFx) { // the rescue picture uses the same strip (S7) [S12]
         const h = Math.round(G.clamp(this.H * .14, 78, 130));
         this.bossBox = { x: 0, y: top, w: this.W, h };
         top += h + 6;
@@ -190,6 +191,9 @@
       G.Cloister.close();
       const B = this.board.boss;
       this.bossFx = B ? { id: B.id, short: B.short, weak: B.weak, max: this.board.goals[B.gi].need, timer: B.timer, angry: false, hurt: 0, atk: 0, t: 0 } : null; // [S07]
+      // S7 [S12]: the huntress in peril; danger follows the moves used, her chains follow the chain goal
+      const ci = this.board.goals.findIndex(g => g.type === 'chain');
+      this.rescueFx = level.rescue ? { t: 0, danger: 0, shown: 0, ci, chains: ci >= 0 ? this.board.goals[ci].need : 0, free: 0, lost: 0, total: this.board.moves } : null;
       this.scene = 'level'; this.state = 'intro';
       G.UI.show('hud');
       G.UI.setupHud(level, this.board);
@@ -201,17 +205,21 @@
       this.hammerOff();
       this.intro = { n, actIdx, perkNotes, anyBuilt, bomb: false };
       this.showIntro();
+      if (G.Cast) G.Cast.event('intro', level); // S8 [S12]: a line above the start panel, never during play
     },
     // Level start panel; offers one fire bomb for gold (S3 helpers) [S06]
     showIntro() {
       const o = this.intro, level = this.level, S = G.Save.data, CL = G.Cloister;
-      const buttons = [{ label: 'Fight', cls: 'big', fn: () => { this.state = 'play'; this.idle = 0; } }];
+      const buttons = [{ label: 'Fight', cls: 'big', fn: () => { this.state = 'play'; this.idle = 0; if (G.Cast) G.Cast.hide(); } }];
+      const freeBombs = CL.items().bomb; // fire bombs from chests come first (S9) [S12]
       if (!o.bomb) buttons.push({
-        label: 'Start with a fire bomb · ' + BOMB_PRICE + ' gold', cls: 'dark helper', disabled: S.gold < BOMB_PRICE,
+        label: freeBombs ? 'Use a free fire bomb (' + freeBombs + ' left)' : 'Start with a fire bomb · ' + BOMB_PRICE + ' gold', cls: 'dark helper', disabled: !freeBombs && S.gold < BOMB_PRICE,
         fn: () => {
-          if (S.gold < BOMB_PRICE || !CL.arm(this.board, ['bomb'])) return this.showIntro();
-          S.gold -= BOMB_PRICE; G.Save.save();
-          o.bomb = true; o.perkNotes.push('fire bomb bought');
+          if (!freeBombs && S.gold < BOMB_PRICE) return this.showIntro();
+          if (!CL.arm(this.board, ['bomb'])) return this.showIntro();
+          if (freeBombs) CL.useItem('bomb'); else S.gold -= BOMB_PRICE;
+          G.Save.save();
+          o.bomb = true; o.perkNotes.push(freeBombs ? 'free fire bomb used' : 'fire bomb bought');
           this.view.setBoard(this.board, level.theme);
           this.layoutBoard();
           snd('coin');
@@ -223,11 +231,14 @@
       const dailyNote = !level.daily ? '' : D.wonToday()
         ? '<br><span class="perk-note">Today\'s reward is claimed; replays pay nothing</span>'
         : '<br><span class="perk-note">First win today: ' + 150 + ' gold and 1 rune stone' + (streak ? ' · streak ' + streak + ' day' + (streak > 1 ? 's' : '') : '') + '</span>';
+      // rescue and Cursed levels say so on their start panel [S12]
+      const special = level.daily ? '' : level.rescue ? '<br><span class="rescue-note">Rescue: save Kaela and earn 50 gold more</span>'
+        : level.cursed ? '<br><span class="cursed-note">Cursed: fewer moves, worth 2 rune stones</span>' : '';
       G.UI.modal({
-        title: level.daily ? 'Daily Trial' : level.bossInfo ? level.bossInfo.name : level.boss ? level.name : 'Level ' + o.n,
-        sub: level.daily ? level.name : level.bossInfo ? 'Level ' + o.n + ' · ' + level.name : level.boss ? 'Level ' + o.n : level.name,
+        title: level.daily ? 'Daily Trial' : level.bossInfo ? level.bossInfo.name : level.boss ? level.name : level.rescue ? 'Rescue!' : level.cursed ? 'Cursed Level' : 'Level ' + o.n,
+        sub: level.daily ? level.name : level.bossInfo ? 'Level ' + o.n + ' · ' + level.name : level.boss ? 'Level ' + o.n : level.rescue || level.cursed ? 'Level ' + o.n + ' · ' + level.name : level.name,
         goals: this.board.goals, tip: level.tip || '',
-        html: '<b>' + this.board.moves + '</b> moves' + dailyNote +
+        html: '<b>' + this.board.moves + '</b> moves' + special + dailyNote +
           (o.perkNotes.length ? '<br><span class="perk-note">' + o.perkNotes.join(' · ') + '</span>' : '') +
           (o.anyBuilt && !CL.perksOn() ? '<br><span class="perk-note off">Cloister perks are off</span>' : '') +
           (o.bomb ? '' : '<br><span class="gold-note">You have ' + S.gold + ' gold</span>'),
@@ -236,17 +247,19 @@
     },
 
     // ---------- the hammer: smash one tile for gold, costs no move (S3 helpers) [S06] ----------
+    // free hammers from chests are used before gold (S9) [S12]
+    hammerFree() { return G.Cloister.items().hammer || 0; },
     hammerOff() {
       this.hammerOn = false;
-      const b = $('btnHammer');
+      const b = $('btnHammer'), free = this.hammerFree();
       b.classList.remove('armed');
-      b.innerHTML = 'Hammer · ' + G.Cloister.hammerPrice(HAMMER_PRICE) + ' <span class="coin"></span>';
-      b.classList.toggle('poor', G.Save.data.gold < G.Cloister.hammerPrice(HAMMER_PRICE));
+      b.innerHTML = free ? 'Hammer · free (' + free + ')' : 'Hammer · ' + G.Cloister.hammerPrice(HAMMER_PRICE) + ' <span class="coin"></span>';
+      b.classList.toggle('poor', !free && G.Save.data.gold < G.Cloister.hammerPrice(HAMMER_PRICE));
     },
     hammerClick() {
       if (this.scene !== 'level' || this.state !== 'play' || this.view.busy()) return;
       if (this.hammerOn) { snd('click'); return this.hammerOff(); }
-      if (G.Save.data.gold < G.Cloister.hammerPrice(HAMMER_PRICE)) {
+      if (!this.hammerFree() && G.Save.data.gold < G.Cloister.hammerPrice(HAMMER_PRICE)) {
         snd('bad');
         this.view.text('Not enough gold', this.W / 2, this.view.by + this.view.R * this.view.cs * .5, .7);
         return;
@@ -259,11 +272,12 @@
       b.textContent = 'Tap a tile to smash';
     },
     useHammer(cell) {
-      const S = G.Save.data;
-      const ev = S.gold >= G.Cloister.hammerPrice(HAMMER_PRICE) ? this.board.smash(cell.r, cell.c) : null;
+      const S = G.Save.data, free = this.hammerFree() > 0;
+      const ev = free || S.gold >= G.Cloister.hammerPrice(HAMMER_PRICE) ? this.board.smash(cell.r, cell.c) : null;
       this.hammerOff();
       if (!ev) return;
-      S.gold -= G.Cloister.hammerPrice(HAMMER_PRICE); G.Save.save();
+      if (free) G.Cloister.useItem('hammer'); else S.gold -= G.Cloister.hammerPrice(HAMMER_PRICE);
+      G.Save.save();
       this.hammerOff();
       snd('crack');
       this.act(ev);
@@ -288,10 +302,11 @@
     win() {
       this.state = 'end';
       const left = this.board.moves;
-      const gold = Math.round((20 + left * 5 + (this.level.boss ? 50 : 0)) * G.Cloister.goldMult());
+      const gold = Math.round((20 + left * 5 + (this.level.boss || this.level.rescue ? 50 : 0)) * G.Cloister.goldMult()); // rescues pay 50 more [S12]
+      if (this.rescueFx) this.rescueFx.free = .001; // her chains fall and the blood drains (S7) [S12]
       const firstWin = this.level.n >= G.Save.data.unlocked;
       const stones = firstWin ? G.Cloister.stonesFor(this.level) : 0;
-      this.view.text('Victory', this.W / 2, this.view.by + this.view.R * this.view.cs * .4, 1.3);
+      this.view.text(this.level.rescue ? 'She is free!' : 'Victory', this.W / 2, this.view.by + this.view.R * this.view.cs * .4, 1.3);
       snd('win');
       setTimeout(() => {
         if (left > 0) this.view.text('Huntress\'s Fury!', this.W / 2, this.view.by + this.view.R * this.view.cs * .55, .9);
@@ -309,19 +324,22 @@
           snd('coin');
           // Continue goes home, where the stones are spent (S5) [S10]
           const home = this.from !== 'map';
+          const lv = this.level, sp = lv.rescue ? 'Kaela tears free of the last chain.' : WIN_LINES[n % WIN_LINES.length];
+          const nextChest = G.Cloister.nextChest() === 'L' ? '<br><span class="quest-done">A level chest waits at home!</span>' : ''; // [S12]
           G.UI.modal({
-            title: 'Victory', sub: WIN_LINES[n % WIN_LINES.length],
-            html: '+' + gold + ' gold' +
-              (stones ? '<br><span class="stones">+' + stones + ' rune stone' + (stones > 1 ? 's' : '') + '</span>' : '') +
+            title: lv.rescue ? 'Rescued' : 'Victory', sub: sp,
+            html: '+' + gold + ' gold' + (lv.rescue ? ' <span class="rescue-note">(rescue +50)</span>' : '') +
+              (stones ? '<br><span class="stones">+' + stones + ' rune stone' + (stones > 1 ? 's' : '') + (lv.cursed ? ' (Cursed)' : '') + '</span>' : '') + nextChest +
               (left ? '<br><span style="color:#9c8c74;font-size:15px">' + left + ' moves unused</span>' : '') +
               '<br><span class="perk-note">Win streak ' + streak + ': the next level starts with ' + CL.streakWords(streak) + '</span>' + quests,
             buttons: [
-              home ? { label: 'Continue', cls: 'big' + (CL.anyAffordable() ? ' badge' : ''), fn: () => this.openHome() }
+              home ? { label: 'Continue', cls: 'big' + (CL.anyAffordable() || nextChest ? ' badge' : ''), fn: () => this.openHome() }
                 : { label: 'Next Level', cls: 'big', fn: () => this.startLevel(n + 1) },
               home ? { label: 'Next Level', cls: 'dark', fn: () => this.startLevel(n + 1) }
-                : { label: 'Home', cls: 'dark' + (CL.anyAffordable() ? ' badge' : ''), fn: () => this.openHome() }
+                : { label: 'Home', cls: 'dark' + (CL.anyAffordable() || nextChest ? ' badge' : ''), fn: () => this.openHome() }
             ]
           });
+          if (G.Cast) G.Cast.event('win', lv); // [S12]
         });
       }, 900);
     },
@@ -354,10 +372,11 @@
       const S = G.Save.data;
       const price = G.Cloister.movePrice(200 * (this.buys + 1), this.buys); // the Chapel lowers it [S06]
       G.UI.modal({
-        title: 'Out of Moves', red: true, sub: 'Still standing in your way:', goals: this.board.goals.filter(g => g.have < g.need), goalsLeft: true,
+        title: 'Out of Moves', red: true, sub: this.level.rescue ? 'The blood is at her throat! Still in your way:' : 'Still standing in your way:', goals: this.board.goals.filter(g => g.have < g.need), goalsLeft: true,
         buttons: [
           { label: '+' + EXTRA_MOVES + ' Moves · ' + (price ? price + ' gold' : 'Free'), disabled: S.gold < price, fn: () => {
             S.gold -= price; this.buys++; G.Save.save();
+            if (this.rescueFx) this.rescueFx.total += EXTRA_MOVES; // the blood sinks back a little [S12]
             this.board.moves += EXTRA_MOVES; G.UI.setMoves(this.board.moves, true);
             this.hammerOff();
             snd('coin');
@@ -402,12 +421,15 @@
       const n = this.level.n, daily = this.level.daily;
       const quests = this.questNote(false);
       const lost = this.breakStreak();
+      if (this.rescueFx) this.rescueFx.lost = .001; // [S12]
       G.UI.modal({
-        title: 'You Have Fallen', red: true, sub: LOSE_LINES[S.stats.losses % LOSE_LINES.length],
+        title: this.level.rescue ? 'Too Late' : 'You Have Fallen', red: true,
+        sub: this.level.rescue ? 'The blood closed over her. But the trap resets: she still breathes.' : LOSE_LINES[S.stats.losses % LOSE_LINES.length],
         html: (lost ? '<span class="perk-note off">' + lost + '</span>' : '') + (quests ? (lost ? quests : quests.slice(4)) : ''),
         buttons: [{ label: 'Try Again', cls: 'big', fn: () => daily ? this.startDaily() : this.startLevel(n) },
           { label: this.from === 'map' && !daily ? 'Map' : 'Home', cls: 'dark', fn: () => this.backOut() }]
       });
+      if (G.Cast) G.Cast.event('lose', this.level); // [S12]
     },
     pause() {
       if (this.scene !== 'level' || this.state === 'end') return;
@@ -535,6 +557,17 @@
           const gi = this.board.boss.gi, left = G.UI.shownLeft[gi];
           const b = this.bossBox;
           G.Boss.drawStrip(g, b.x, b.y, b.w, b.h, Object.assign({}, F, { hp: left === undefined ? F.max : left }));
+        }
+        const RF = this.rescueFx; // the huntress in peril above the board (S7) [S12]
+        if (RF && this.bossBox && G.Rescue) {
+          RF.t += dt;
+          const target = RF.lost ? 1 : RF.free ? 0 : G.clamp(1 - this.board.moves / Math.max(1, RF.total), 0, 1);
+          RF.shown += (target - RF.shown) * Math.min(1, dt * 2.5);
+          if (RF.free) RF.free = Math.min(1, RF.free + dt * .7);
+          if (RF.lost) RF.lost = Math.min(1, RF.lost + dt * .8);
+          const cl = RF.ci >= 0 ? G.UI.shownLeft[RF.ci] : 0;
+          const b = this.bossBox;
+          G.Rescue.drawStrip(g, b.x, b.y, b.w, b.h, { t: RF.t, danger: RF.shown, chains: cl === undefined ? RF.chains : cl, max: RF.chains, free: RF.free, lost: RF.lost, moves: this.board.moves });
         }
         if (this.state === 'play' && !this.view.busy()) {
           this.idle += dt;

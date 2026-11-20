@@ -1287,6 +1287,7 @@ window.G = window.G || {};
     fogBand(ctx, W, H * 0.92, H * 0.06, '#4a0a10', 0.3);
     vignette(ctx, W, H, 0.7);
   }
+  Art.huntress = huntress; // used by the rescue picture (rescue.js) [S12]
   Art.title = function (W, H, dpr) {
     dpr = dpr || 1;
     const ck = 'title|' + W + '|' + H + '|' + dpr;

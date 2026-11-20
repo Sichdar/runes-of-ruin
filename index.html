@@ -211,6 +211,45 @@ h1.title span { font-size: .45em; letter-spacing: .3em; display: block; margin: 
 .quest-done { font-size: 15px; color: #ffd870; font-style: italic; }
 .badge::after { content: '!'; position: absolute; top: -9px; right: -9px; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center;
   font-size: 13px; background: #2a60c0; border: 2px solid #c8d4ff; color: #fff; box-shadow: 0 0 10px rgba(120,160,255,.8); letter-spacing: 0; }
+/* chests, Cursed and rescue levels, the cast (S7-S9) [S12] */
+.chest { width: 132px; height: 110px; display: block; margin: 4px auto 0; overflow: visible; animation: chShake .5s ease-in-out; }
+.chest .ch-glow { opacity: 0; transform-box: fill-box; transform-origin: center; animation: chGlow 1.6s .55s ease-out forwards; }
+.chest .ch-lid { transform-box: view-box; transform-origin: 18px 50px; animation: chLid .5s .5s cubic-bezier(.3,1.6,.5,1) forwards; }
+@keyframes chShake { 20% { transform: rotate(-5deg); } 40% { transform: rotate(5deg); } 60% { transform: rotate(-4deg); } 80% { transform: rotate(3deg); } }
+@keyframes chLid { to { transform: rotate(-30deg) translate(-2px, -3px); } }
+@keyframes chGlow { 0% { opacity: 0; transform: scale(.4); } 40% { opacity: 1; } 100% { opacity: .75; transform: scale(1.1); } }
+.chest-loot { margin-top: 4px; font-family: var(--head); font-weight: 700; font-size: 17px; color: #ffd870; opacity: 0; animation: lootIn .4s .9s forwards; }
+.chest-loot div { margin: 3px 0; }
+@keyframes lootIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.cl-card.chests { padding: 8px 12px; }
+.ch-row { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--dim); margin: 3px 0; }
+.ch-row .ch-name { width: 112px; flex: none; font-family: var(--head); font-size: 12px; letter-spacing: .04em; color: var(--gold); text-transform: uppercase; }
+.ch-row .bar { flex: 1; height: 6px; border-radius: 3px; background: #1a1008; border: 1px solid #5a4228; overflow: hidden; }
+.ch-row .bar i { display: block; height: 100%; background: linear-gradient(90deg, #a8701c, #ffd870); }
+.ch-row > span:last-child { width: 40px; text-align: right; }
+.ch-ico { width: 16px; height: 12px; flex: none; border-radius: 3px 3px 2px 2px; background: linear-gradient(#8a5a2e 45%, #5a5a62 45% 55%, #6a3e1c 55%); border: 1px solid #1a0c04; }
+.cursed-note { font-size: 15px; color: #d0a0ff; font-style: italic; }
+.rescue-note { font-size: 15px; color: #ff9a80; font-style: italic; }
+.node.cursed { border-color: #a070e0; box-shadow: 0 0 0 2px #120604, 0 0 12px 2px rgba(160,100,255,.55), 0 6px 12px rgba(0,0,0,.7); }
+.node.cursed::before { content: ''; position: absolute; left: -5px; top: -5px; width: 16px; height: 16px; border-radius: 3px; transform: rotate(45deg);
+  background: radial-gradient(circle at 35% 35%, #e0d0ff, #7a50c0 60%, #2a1850); border: 1.5px solid #e0d0ff; }
+.node.rescue { border-color: #ff7050; box-shadow: 0 0 0 2px #120604, 0 0 12px 2px rgba(255,80,50,.55), 0 6px 12px rgba(0,0,0,.7); }
+.node.rescue::before { content: 'SOS'; position: absolute; top: -12px; left: 50%; transform: translateX(-50%); font-size: 9px; line-height: 1; letter-spacing: .08em;
+  padding: 2px 4px; border-radius: 6px; background: #3a0806; border: 1.5px solid #ff7050; color: #ffd0c0; }
+.node.locked.cursed, .node.locked.rescue { opacity: .85; }
+.btn .tag { display: block; font-size: 11px; letter-spacing: .14em; margin-top: 2px; }
+.btn .tag.cursed { color: #e0c8ff; } .btn .tag.rescue { color: #ffc8b8; }
+.cast { position: fixed; left: 50%; top: calc(var(--sat) + 8px); z-index: 30; width: min(340px, calc(100% - 32px)); pointer-events: none;
+  display: flex; align-items: center; gap: 10px; padding: 7px 12px 7px 7px; border-radius: 22px;
+  background: rgba(16,10,8,.93); border: 1.5px solid var(--gold-dk); box-shadow: 0 6px 18px rgba(0,0,0,.75);
+  opacity: 0; transform: translate(-50%, -12px); transition: opacity .35s, transform .35s; }
+.cast.home { transform: translate(-50%, calc(-100% + 10px)); }
+.cast.on { opacity: 1; transform: translate(-50%, 0); }
+.cast.home.on { transform: translate(-50%, -100%); }
+.cast-face { width: 40px; height: 40px; flex: none; border-radius: 50%; overflow: hidden; background: #2a1e16; border: 1.5px solid var(--gold-dk); }
+.cast-face svg { width: 100%; height: 100%; display: block; }
+.cast-text { font-size: 15px; line-height: 1.25; color: var(--ink); }
+.cast-text b { display: block; font-family: var(--head); font-size: 10px; letter-spacing: .1em; color: var(--gold); text-transform: uppercase; font-weight: 700; }
 </style>
 </head>
 <body>
@@ -282,6 +321,7 @@ h1.title span { font-size: .45em; letter-spacing: .3em; display: block; margin: 
 <script src="js/core.js"></script>
 <script src="js/levels.js"></script>
 <script src="js/boss.js"></script>
+<script src="js/rescue.js"></script>
 <script src="js/board.js"></script>
 <script src="assets/art-overrides.js"></script>
 <script src="js/art.js"></script>
@@ -290,6 +330,7 @@ h1.title span { font-size: .45em; letter-spacing: .3em; display: block; margin: 
 <script src="js/ui.js"></script>
 <script src="js/cloister.js"></script>
 <script src="js/daily.js"></script>
+<script src="js/cast.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>

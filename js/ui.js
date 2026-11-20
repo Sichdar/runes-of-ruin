@@ -167,7 +167,7 @@
       for (let i = 0; i < n; i++) {
         const lv = act.first + i;
         const b = document.createElement('button');
-        b.className = 'node' + (i === 14 ? ' boss' : '');
+        b.className = 'node' + (i === 14 ? ' boss' : '') + (G.Levels.isRescue(lv) ? ' rescue' : G.Levels.isCursed(lv) ? ' cursed' : ''); // [S12]
         if (lv < S.unlocked) b.classList.add('done');
         else if (lv === S.unlocked) { b.classList.add('current'); currentEl = b; }
         else b.classList.add('locked');

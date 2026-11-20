@@ -112,8 +112,13 @@
   // ---------- endless generator ----------
   function sym(rows, C, r, c, ch) { rows[r][c] = ch; rows[r][C - 1 - c] = ch; }
 
-  function generate(n, seed) { // seed: the daily trial builds a level from the date [S08]
-    const rng = G.rng(seed !== undefined ? seed : n * 7919 + 1013);
+  // Special levels [S12]: every 10th level (not a boss) is a rescue (S7); the 6th and 11th of each act are Cursed (S9)
+  const isBoss = n => (n - 1) % 15 === 14;
+  const isRescue = n => n >= 10 && n % 10 === 0 && !isBoss(n);
+  const isCursed = n => n >= 6 && [5, 10].includes((n - 1) % 15);
+
+  function generate(n, seed, rescue) { // seed: the daily trial builds a level from the date [S08]; rescue: chains + one colour [S12]
+    const rng = G.rng(seed !== undefined ? seed : n * 7919 + 1013 + (rescue ? 5 : 0));
     const actIdx = Math.floor((n - 1) / 15), pos = (n - 1) % 15;
     // [S09] tier no longer stops at 6: the Abyss (from level 106) keeps getting harder, see the caps below
     const tier = actIdx, tc = Math.min(tier, 10);
@@ -133,7 +138,7 @@
     const pool = ['bone', 'ground', 'chain', 'relic', 'color'];
     rng.shuffle(pool);
     const nGoals = pos === 14 ? 3 : (rng() < .15 ? 1 : 2);
-    const kinds = pool.slice(0, nGoals);
+    const kinds = rescue ? ['chain', 'color'] : pool.slice(0, nGoals);
     const goals = [];
     const colors = tier >= 2 && rng() < Math.min(.6, .25 + Math.max(0, tier - 6) * .05) ? 6 : 5; // 6 colours more often deeper down [S09]
     let relics = 0, colorNeed = 0;
@@ -155,7 +160,7 @@
         for (let r = r0; r <= r1; r++) for (let c = c0; c < C - c0; c++) if (free(r, c) && (rng() < .85)) { rows[r][c] = ch; groundLayers += lv; }
         goals.push({ type: 'ground' });
       } else if (k === 'chain') {
-        const cnt = 3 + rng.int(3 + tc);
+        const cnt = 3 + rng.int(3 + tc) + (rescue ? 2 : 0);
         for (let i = 0; i < cnt; i++) { const r = 1 + rng.int(R - 2), c = rng.int(Math.floor(C / 2)); if (free(r, c) || rows[r][c] === 'g') { sym(rows, C, r, c, rows[r][c] === 'g' ? 'h' : 'c'); chains += 2; } }
         goals.push({ type: 'chain' });
       } else if (k === 'relic') {
@@ -164,6 +169,7 @@
       } else {
         const col = rng.int(colors);
         colorNeed = 24 + rng.int(10) + tc * 4;
+        if (rescue) colorNeed = Math.round(colorNeed * .7); // rescues are short and tense [S12]
         goals.push({ type: 'color', color: col, n: colorNeed });
       }
     }
@@ -202,7 +208,7 @@
   function calibrate(n, lvl, noCache) { // noCache: the daily trial keeps its own [S08]
     const S = noCache ? null : G.Save && G.Save.data;
     // boss fights got their own key when bosses came in [S07]; levels past 75 changed with Acts VI-VII [S09]
-    const key = (lvl.bossInfo ? 'b' : 'm') + n + (n > 75 ? 'e' : '');
+    const key = (lvl.bossInfo ? 'b' : lvl.rescue ? 'r' : 'm') + n + (n > 75 ? 'e' : ''); // rescues: own key [S12]
     if (S && S.calib && S.calib[key]) return S.calib[key];
     const runs = [];
     for (let i = 0; i < 7; i++) runs.push(botMovesNeeded(lvl, n * 101 + i * 7));
@@ -220,6 +226,9 @@
   G.Levels = {
     count: Infinity,
     generate, calibrate, // used by the daily trial [S08]
+    isRescue, isCursed,
+    // how many Cursed levels there are from 1 to n (each pays 1 extra stone) [S12]
+    cursedUpTo(n) { let k = 0; for (let i = 6; i <= n; i++) if (isCursed(i)) k++; return k; },
     actOf(n) { return Math.floor((n - 1) / 15); },
     act(idx) {
       if (idx < ACTS.length) return Object.assign({ idx, first: idx * 15 + 1 }, ACTS[idx]);
@@ -237,9 +246,13 @@
     },
     get(n) {
       let base;
-      const boss = (n - 1) % 15 === 14;
+      const boss = isBoss(n), rescue = isRescue(n);
       if (n <= 15) base = JSON.parse(JSON.stringify(ACT1[n - 1]));
-      else base = generate(n);
+      else base = generate(n, undefined, rescue);
+      if (rescue) { // S7 [S12]: the huntress is chained in a rising pool of blood; level 10 keeps its hand-made board
+        base.rescue = true;
+        base.tip = 'Kaela is chained in a rising pool of blood. Break the chains and finish the goals before your moves run out.';
+      }
       // Boss fight [S07]: the boss's health is the only goal; obstacles stay, relics go
       if (boss && G.Boss) {
         const B = G.Boss.forLevel(n);
@@ -250,6 +263,10 @@
         base.tip = B.tip;
       }
       if (n > 15) base.moves = calibrate(n, base);
+      if (isCursed(n)) { // S9 [S12]: about 10% fewer moves, worth 2 rune stones
+        base.cursed = true;
+        base.moves -= Math.max(2, Math.round(base.moves * .1));
+      }
       const act = this.act(this.actOf(n));
       base.n = n;
       base.name = this.name(n);
